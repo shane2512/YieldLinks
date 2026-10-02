@@ -7,7 +7,7 @@ import { usePublicClient } from "wagmi";
 import { CheckIcon, ClipboardDocumentIcon } from "@heroicons/react/24/outline";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 import scaffoldConfig from "~~/scaffold.config";
-import { hashscanUrl } from "~~/utils/yieldlinks";
+import { hashscanUrl, toDerPrivateKey, toRawHexKey } from "~~/utils/yieldlinks";
 import { MIN_ACTIVATION_BALANCE_TINYBAR } from "~~/utils/yieldlinks/activation";
 
 type ClaimSuccessProps = {
@@ -32,7 +32,7 @@ export const ClaimSuccess = ({ hash, recipient, generated }: ClaimSuccessProps) 
   const [activation, setActivation] = useState<Activation | null>(generated ? "working" : null);
   const [detail, setDetail] = useState("Preparing your account…");
   const [accountId, setAccountId] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const started = useRef(false);
 
   /**
@@ -102,12 +102,13 @@ export const ClaimSuccess = ({ hash, recipient, generated }: ClaimSuccessProps) 
     }
   }, [generated, activate]);
 
-  const copyKey = async () => {
-    if (!generated) return;
-    await navigator.clipboard.writeText(generated.privateKey);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copy = async (id: string, value: string) => {
+    await navigator.clipboard.writeText(value);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
   };
+
+  const networkName = targetNetwork.id === 295 ? "Mainnet" : "Testnet";
 
   return (
     <div className="flex flex-col items-center gap-4 text-center">
@@ -157,31 +158,42 @@ export const ClaimSuccess = ({ hash, recipient, generated }: ClaimSuccessProps) 
             </div>
           )}
 
-          {activation === "done" && (
+          {activation === "done" && generated && (
             <>
               <p className="text-sm text-base-content/70">
                 Your account is ready to import. Wallet apps find accounts by key, and yours now has one on record.
-                {accountId && (
-                  <>
-                    {" "}
-                    Your Hedera account ID is <span className="font-mono">{accountId}</span>.
-                  </>
-                )}
               </p>
+              <div className="flex flex-col gap-2">
+                {accountId && (
+                  <CopyRow id="account" label="Account ID" value={accountId} copied={copied} onCopy={copy} />
+                )}
+                <CopyRow
+                  id="der"
+                  label="Private key, DER format (for HashPack)"
+                  value={toDerPrivateKey(generated.privateKey)}
+                  copied={copied}
+                  onCopy={copy}
+                />
+                <CopyRow
+                  id="hex"
+                  label="Private key, hex (for MetaMask and EVM wallets)"
+                  value={toRawHexKey(generated.privateKey)}
+                  copied={copied}
+                  onCopy={copy}
+                />
+              </div>
               <ol className="list-decimal pl-5 text-sm space-y-1 text-base-content/80">
                 <li>
-                  Copy your private key.{" "}
-                  <button className="link link-primary inline-flex items-center gap-1" onClick={copyKey}>
-                    {copied ? <CheckIcon className="h-3 w-3" /> : <ClipboardDocumentIcon className="h-3 w-3" />}
-                    {copied ? "Copied" : "Copy key"}
-                  </button>
+                  In HashPack, choose Add account, then Import, and select the <strong>{networkName}</strong> network.
                 </li>
-                <li>In your wallet app, choose Add or Import account, then Private key.</li>
-                <li>If it asks for a key type, choose ECDSA. Paste the key; your account appears with the gift.</li>
+                <li>
+                  Enter the account ID and paste the <strong>DER</strong> key, not the hex one. It is ECDSA.
+                </li>
+                <li>Your account appears with the gift. In MetaMask, import the hex key instead.</li>
               </ol>
               <p className="text-xs text-base-content/50">
-                Still &quot;no account found&quot;? Wait a minute and try again. Keep your private key private: anyone
-                who has it controls the account.
+                Still &quot;no account found&quot;? The usual cause is the wrong network in the wallet, or the hex key
+                instead of DER. Keep your private key private: anyone who has it controls the account.
               </p>
             </>
           )}
@@ -190,3 +202,27 @@ export const ClaimSuccess = ({ hash, recipient, generated }: ClaimSuccessProps) 
     </div>
   );
 };
+
+type CopyRowProps = {
+  id: string;
+  label: string;
+  value: string;
+  copied: string | null;
+  onCopy: (id: string, value: string) => void;
+};
+
+const CopyRow = ({ id, label, value, copied, onCopy }: CopyRowProps) => (
+  <div className="rounded-lg bg-base-200 p-2">
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-xs text-base-content/60">{label}</span>
+      <button
+        className="link link-primary inline-flex items-center gap-1 text-xs"
+        onClick={() => void onCopy(id, value)}
+      >
+        {copied === id ? <CheckIcon className="h-3 w-3" /> : <ClipboardDocumentIcon className="h-3 w-3" />}
+        {copied === id ? "Copied" : "Copy"}
+      </button>
+    </div>
+    <div className="font-mono text-xs break-all">{value}</div>
+  </div>
+);

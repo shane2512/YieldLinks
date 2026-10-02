@@ -9,7 +9,15 @@ import { RainbowKitCustomConnectButton } from "~~/components/scaffold-hbar";
 import { ClaimSuccess } from "~~/components/yieldlinks/ClaimSuccess";
 import { GrowingAmount } from "~~/components/yieldlinks/GrowingAmount";
 import { useDeployedContractInfo, useScaffoldReadContract, useTargetNetwork } from "~~/hooks/scaffold-hbar";
-import { LINK_STATUS, formatToken, newKeypair, parseClaimHash, signClaim } from "~~/utils/yieldlinks";
+import {
+  LINK_STATUS,
+  formatToken,
+  newKeypair,
+  parseClaimHash,
+  signClaim,
+  toDerPrivateKey,
+  toRawHexKey,
+} from "~~/utils/yieldlinks";
 
 type Wallet = { address: Address; privateKey: Hex };
 type Claimed = { hash: string; recipient: Address; generated?: Wallet };
@@ -108,7 +116,15 @@ export const ClaimCard = () => {
 
   const downloadKey = () => {
     if (!wallet) return;
-    const text = `Hedera wallet created by YieldLinks\nAddress: ${wallet.address}\nPrivate key: ${wallet.privateKey}\n\nAnyone with this key controls the funds. Store it somewhere safe.\n`;
+    const text = [
+      "Hedera wallet created by YieldLinks (ECDSA key)",
+      `Address: ${wallet.address}`,
+      `Private key, hex (MetaMask and EVM wallets): ${toRawHexKey(wallet.privateKey)}`,
+      `Private key, DER (HashPack and Hedera tools): ${toDerPrivateKey(wallet.privateKey)}`,
+      "",
+      "Anyone with this key controls the funds. Store it somewhere safe.",
+      "",
+    ].join("\n");
     const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
     const a = document.createElement("a");
     a.href = url;

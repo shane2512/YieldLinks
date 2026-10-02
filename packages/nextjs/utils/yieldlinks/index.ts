@@ -60,6 +60,18 @@ export const formatToken = (value: bigint, maxDecimals = TOKEN_DECIMALS) => {
   return trimmed ? `${Number(whole).toLocaleString()}.${trimmed}` : Number(whole).toLocaleString();
 };
 
+/**
+ * A raw 32-byte hex key does not say what kind of key it is. Wallet apps that read it as ED25519 (a common default on
+ * Hedera) derive a different public key from the same bytes and report "no account found". The DER encoding states
+ * "secp256k1 / ECDSA" explicitly, so Hedera wallets such as HashPack read it correctly.
+ */
+const ECDSA_DER_PREFIX = "3030020100300706052b8104000a04220420";
+
+export const toDerPrivateKey = (privateKey: Hex) => `${ECDSA_DER_PREFIX}${privateKey.slice(2)}`;
+
+/** The raw key without the 0x prefix, as MetaMask and most EVM wallets import it. */
+export const toRawHexKey = (privateKey: Hex) => privateKey.slice(2);
+
 type WalletError = { code?: number; shortMessage?: string; message?: string; cause?: unknown };
 
 /** Turns a raw wallet or RPC error into something a person can act on. */
