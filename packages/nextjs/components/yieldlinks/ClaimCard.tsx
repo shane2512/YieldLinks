@@ -119,8 +119,8 @@ export const ClaimCard = () => {
     const text = [
       "Hedera wallet created by YieldLinks (ECDSA key)",
       `Address: ${wallet.address}`,
-      `Private key, hex (MetaMask and EVM wallets): ${toRawHexKey(wallet.privateKey)}`,
-      `Private key, DER (HashPack and Hedera tools): ${toDerPrivateKey(wallet.privateKey)}`,
+      `Private key, 64 characters (HashPack and MetaMask): ${toRawHexKey(wallet.privateKey)}`,
+      `Private key, DER (Hedera SDK and CLI tools only): ${toDerPrivateKey(wallet.privateKey)}`,
       "",
       "Anyone with this key controls the funds. Store it somewhere safe.",
       "",

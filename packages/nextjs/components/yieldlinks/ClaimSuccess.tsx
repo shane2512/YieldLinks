@@ -168,16 +168,16 @@ export const ClaimSuccess = ({ hash, recipient, generated }: ClaimSuccessProps) 
                   <CopyRow id="account" label="Account ID" value={accountId} copied={copied} onCopy={copy} />
                 )}
                 <CopyRow
-                  id="der"
-                  label="Private key, DER format (for HashPack)"
-                  value={toDerPrivateKey(generated.privateKey)}
+                  id="hex"
+                  label="Private key, 64 characters (HashPack and MetaMask)"
+                  value={toRawHexKey(generated.privateKey)}
                   copied={copied}
                   onCopy={copy}
                 />
                 <CopyRow
-                  id="hex"
-                  label="Private key, hex (for MetaMask and EVM wallets)"
-                  value={toRawHexKey(generated.privateKey)}
+                  id="der"
+                  label="Private key, DER format (Hedera SDK and CLI tools only)"
+                  value={toDerPrivateKey(generated.privateKey)}
                   copied={copied}
                   onCopy={copy}
                 />
@@ -187,13 +187,15 @@ export const ClaimSuccess = ({ hash, recipient, generated }: ClaimSuccessProps) 
                   In HashPack, choose Add account, then Import, and select the <strong>{networkName}</strong> network.
                 </li>
                 <li>
-                  Enter the account ID and paste the <strong>DER</strong> key, not the hex one. It is ECDSA.
+                  Paste the <strong>64-character</strong> key. HashPack&apos;s field takes 64 or 96 characters, so the
+                  longer DER key is not for it.
                 </li>
-                <li>Your account appears with the gift. In MetaMask, import the hex key instead.</li>
+                <li>HashPack should list the account above. MetaMask takes the same 64-character key.</li>
               </ol>
               <p className="text-xs text-base-content/50">
-                Still &quot;no account found&quot;? The usual cause is the wrong network in the wallet, or the hex key
-                instead of DER. Keep your private key private: anyone who has it controls the account.
+                Still &quot;no accounts found&quot;? Check the wallet is on {networkName}, that this key is from this
+                page after it said &quot;ready to import&quot;, and wait a minute. Keep your private key private: anyone
+                who has it controls the account.
               </p>
             </>
           )}
