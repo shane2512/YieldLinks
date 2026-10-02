@@ -26,7 +26,14 @@ Platform behavior found while building this template, each verified against Hede
 
 **The ERC-20 facade just works** for `approve`, `transferFrom` and `balanceOf` on HTS tokens, including from contracts. Decimals are whatever the token has (6 for SAUCE and USDC); never hardcode 18.
 
-**Who pays the account-creation fee.** The airdrop that creates an account costs about 0.5 HBAR. In the final testnet runs the transaction payer paid and the source's HBAR balance was unchanged; in one earlier probe contract the contract's own balance dropped by about 0.48 HBAR. Keep a small reserve on the source until you have confirmed the behavior on your target network.
+**Who pays the account-creation fee depends on the network version.** The mirror node shows it (`GET /api/v1/transactions/{transactionId}` returns the parent and every child record):
+
+| Run | Records | Who paid |
+| --- | --- | --- |
+| 1 Oct probe contract (`0x153719dd…`) | `CRYPTOCREATEACCOUNT` (fee 0), then a **`TOKENAIRDROP`** child with fee 0.482 HBAR | The **sending contract**, from its own balance |
+| 2 Oct final claim (`0xc753f953…`) | `CRYPTOCREATEACCOUNT` and `CRYPTOTRANSFER` (fee 0 each), no `TOKENAIRDROP` record | The **transaction payer** (the relayer), inside the single 1.281 HBAR fee; the source's 2 HBAR reserve was untouched |
+
+Do not rely on either. Keep a small HBAR reserve on the source (the deployer can reclaim it with `withdrawHbar`) and re-check this on the network you deploy to.
 
 **Measured fees** (testnet, about $0.105 per HBAR, 2 Oct 2026): claim 1.28 HBAR, create 0.76 HBAR, cancel 0.71 HBAR.
 
@@ -61,4 +68,4 @@ On plain Anvil and in `forge test` there is no HTS at `0x167`. `HtsLib` treats t
 
 ## Windows
 
-The scaffold's deploy, chain and fork scripts call `make`. Install it, or run them from WSL or Git Bash. Tests, lint and `yarn foundry:demo` do not need it. If `forge test` reports "No tests found" or `forge script` reports "No contract bytecode" right after a successful build, the incremental cache is out of sync: run `forge clean` and build again.
+Nothing in this template needs `make`: tests, lint, deploy, `yarn foundry:chain` and `yarn foundry:fork` are plain Node and Foundry commands. If `forge test` reports "No tests found" or `forge script` reports "No contract bytecode" right after a successful build, the incremental cache is out of sync: run `forge clean` and build again.

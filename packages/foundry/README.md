@@ -24,11 +24,12 @@ git submodule update --init --recursive
 ## Tests
 
 ```bash
-yarn test                 # forge test: 34 tests on a plain EVM, no Hedera node needed
+yarn test                 # forge test: 38 tests on a plain EVM, no Hedera node needed
+FOUNDRY_PROFILE=deep forge test --match-contract InvariantsTest   # 128,000-call invariant campaign
 yarn test:testnet         # same suite against a testnet fork (needs --ffi and a mirror node)
 ```
 
-The suite covers accounting and yield for all three yield policies, front-running, replay and key reuse, expiry and refunds, the first-depositor inflation attack, a solvency fuzz test, the staking source against a mock Infinity Pool, and HIP-904 delivery against a mock HTS etched at `0x167`.
+The suite covers accounting and yield for all three yield policies, front-running, replay and key reuse, expiry and refunds, the first-depositor inflation attack, a solvency fuzz test, stateful invariants (solvency, share accounting and value conservation across random create/claim/cancel/expire sequences, plus a coverage test proving every path runs), the staking source against a mock Infinity Pool, and HIP-904 delivery against a mock HTS etched at `0x167`.
 
 ## Deploy
 
@@ -54,4 +55,4 @@ Creates a link, claims it to an address Hedera has never seen, then creates and 
 - `yarn chain` runs plain Anvil. The deploy uses `IdleSource`, so the app works without yield.
 - `yarn fork` runs Anvil forked from Hedera testnet with chain id 296, so the SaucerSwap source and HTS behave as on the network.
 
-On Windows the deploy, chain and fork scripts need `make` (use WSL or Git Bash); tests and lint do not.
+Everything runs with Foundry and Node only; there is no `make` dependency, so it works on Windows too.

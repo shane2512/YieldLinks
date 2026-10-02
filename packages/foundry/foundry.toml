@@ -9,6 +9,15 @@ fs_permissions = [
 ffi = true
 evm_version = "cancun"
 
+[invariant]
+runs = 64
+depth = 100
+
+# Thorough campaign: FOUNDRY_PROFILE=deep forge test --match-contract InvariantsTest
+[profile.deep.invariant]
+runs = 256
+depth = 500
+
 # Suppress style lints for API/modifier names we don't control
 [lint]
 exclude_lints = ["mixed-case-variable", "mixed-case-function"]

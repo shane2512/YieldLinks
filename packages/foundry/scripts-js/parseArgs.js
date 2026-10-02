@@ -1,9 +1,10 @@
-import { spawnSync } from "child_process";
 import { config } from "dotenv";
+import { homedir } from "os";
 import { join, dirname } from "path";
 import { readFileSync, existsSync } from "fs";
 import { parse } from "toml";
 import { fileURLToPath } from "url";
+import { deploy } from "./deploy.js";
 import { selectOrCreateKeystore } from "./selectOrCreateKeystore.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -53,12 +54,7 @@ function validateKeystore(keystoreName) {
     return true; // Default keystore is always valid
   }
 
-  const keystorePath = join(
-    process.env.HOME,
-    ".foundry",
-    "keystores",
-    keystoreName
-  );
+  const keystorePath = join(homedir(), ".foundry", "keystores", keystoreName);
   return existsSync(keystorePath);
 }
 
@@ -80,22 +76,22 @@ try {
   process.exit(1);
 }
 
-if (
-  process.env.LOCALHOST_KEYSTORE_ACCOUNT !== "scaffold-hbar-default" &&
-  network === "localhost"
-) {
+const localKeystore =
+  process.env.LOCALHOST_KEYSTORE_ACCOUNT || "scaffold-hbar-default";
+
+if (localKeystore !== "scaffold-hbar-default" && network === "localhost") {
   console.log(`
-⚠️ Warning: Using ${process.env.LOCALHOST_KEYSTORE_ACCOUNT} keystore account on localhost.
+⚠️ Warning: Using ${localKeystore} keystore account on localhost.
 
 You can either:
-1. Enter the password for ${process.env.LOCALHOST_KEYSTORE_ACCOUNT} account
+1. Enter the password for ${localKeystore} account
    OR
 2. Set the localhost keystore account in your .env and re-run the command to skip password prompt:
    LOCALHOST_KEYSTORE_ACCOUNT='scaffold-hbar-default'
 `);
 }
 
-let selectedKeystore = process.env.LOCALHOST_KEYSTORE_ACCOUNT;
+let selectedKeystore = localKeystore;
 if (network !== "localhost") {
   if (keystoreArg) {
     // Use the keystore provided via command line argument
@@ -148,18 +144,6 @@ The default account (scaffold-hbar-default) can only be used for localhost deplo
   process.exit(0);
 }
 
-// Set environment variables for the make command
-process.env.DEPLOY_SCRIPT = `script/${fileName}`;
-process.env.RPC_URL = network;
-process.env.ETH_KEYSTORE_ACCOUNT = selectedKeystore;
-
-// Run make from the foundry package root so it finds the Makefile and forge uses foundry.toml
-const foundryPackageRoot = join(__dirname, "..");
-
-const result = spawnSync("make", ["deploy-and-generate-abis"], {
-  stdio: "inherit",
-  shell: true,
-  cwd: foundryPackageRoot,
-});
-
-process.exit(result.status);
+process.exit(
+  deploy({ script: `script/${fileName}`, network, keystore: selectedKeystore })
+);

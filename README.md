@@ -44,7 +44,6 @@ Measured fees on testnet at about $0.105 per HBAR: claim 1.28 HBAR, create 0.76 
 
 - Node.js 20.18.3 or later, and Yarn (`npm i -g yarn`)
 - [Foundry](https://book.getfoundry.sh/getting-started/installation) (`forge`, `cast`)
-- `make` for the deploy, local-chain and fork scripts only (tests, lint and the app do not need it; on Windows use WSL or Git Bash)
 - A Hedera testnet account with HBAR from the [Hedera Portal faucet](https://portal.hedera.com/faucet)
 
 **1. Scaffold and install**
@@ -133,7 +132,7 @@ packages/
       sources/IdleSource.sol      no yield; reference implementation, used on plain Anvil
       libraries/HtsLib.sol        association and airdrop, no-ops where HTS does not exist
     script/Deploy.s.sol           deploys source, YieldLinks, binds them
-    test/                         34 tests (unit, fuzz, attack cases, HTS delivery)
+    test/                         38 tests (unit, fuzz, stateful invariants, attack cases, HTS delivery)
     scripts-js/demo.js            `yarn foundry:demo`
   nextjs/
     app/page.tsx                  send a gift
@@ -195,10 +194,9 @@ See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md). In short: a link is bearer val
 - **SAUCE only.** One token per source. It is volatile, so a gift's dollar value moves with the market.
 - **Bonzo Finance was tried first and is not used.** Its testnet pool rejects every supply because the rewards controller does not authorize the aTokens (`CALLER_NOT_AUTHORIZED`, traced on the mirror node), and its mainnet pool reports `paused() = true` with a near-zero USDC rate. Details in [docs/HEDERA_NOTES.md](docs/HEDERA_NOTES.md).
 - **No Hedera Schedule Service.** Refunds are permissionless instead of scheduled. HIP-1215 `scheduleCall` has an open bug when booked from a delegatecall frame ([#27263](https://github.com/hiero-ledger/hiero-consensus-node/issues/27263)), a 62-day expiry cap, and self-rescheduling is unproven, so nothing here depends on it.
-- **Who pays the account-creation fee.** In our runs the transaction payer (the relayer) covered it; in one earlier probe the contract's balance did. The source accepts an HBAR reserve as a safety margin, and the deployer can take it back.
+- **Who pays the account-creation fee depends on the network version.** On 1 Oct the HIP-904 airdrop appeared as a `TOKENAIRDROP` child record and the sending contract paid 0.48 HBAR; on 2 Oct the account was created inside the claim and the relayer paid the single 1.28 HBAR fee, with the contract untouched. The source accepts an HBAR reserve as a safety margin and the deployer can take it back. Evidence in [docs/HEDERA_NOTES.md](docs/HEDERA_NOTES.md).
 - **The relayer is a single key.** It is rate limited per IP in memory and serialized. For production use a queue, per-user limits and a dedicated funding policy.
 - **In-browser wallets are demo-grade onboarding.** The claim page can generate a key and ask the user to save it. A production app should use passkeys or an embedded wallet.
-- **Deploy and local-chain scripts need `make`.** On Windows run them from WSL or Git Bash with make installed. Tests, lint and the app work without it.
 
 ## Troubleshooting
 
@@ -210,12 +208,12 @@ See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md). In short: a link is bearer val
 | Claim returns `Relayer is not configured` | Set `RELAYER_PRIVATE_KEY` in `packages/nextjs/.env.local` and restart. |
 | Form shows no balance | Associate the account with SAUCE (step 4) and make sure it holds some. |
 | Reads look stale after a transaction | Hashio can serve state a few seconds behind. Wait and refresh. |
-| `forge script` runs out of gas in simulation | Add `--gas-limit 14000000`, as the Makefile deploy target does for a two-contract deploy. |
+| `forge script` runs out of gas in simulation | `yarn foundry:deploy` already passes `--gas-limit 14000000` on Hedera networks. If you run `forge script` yourself, add it: a two-contract script is simulated in one call. |
 
 ## Testing
 
 ```bash
-yarn foundry:test      # 34 tests: accounting, attacks, expiry/refund, fuzz, HTS delivery, staking source
+yarn foundry:test      # 38 tests: accounting, attacks, expiry/refund, fuzz, stateful invariants, HTS delivery, staking source
 yarn foundry:lint      # forge fmt --check and prettier on scripts
 yarn next:lint
 yarn next:check-types

@@ -12,8 +12,8 @@ Stack: Foundry contracts (`packages/foundry`) and a Next.js App Router frontend 
 
 ```bash
 # Contracts (packages/foundry)
-yarn foundry:test                     # forge test, 34 tests
-yarn foundry:lint                     # forge fmt --check + prettier on scripts-js (needs make)
+yarn foundry:test                     # forge test, 38 tests incl. stateful invariants
+yarn foundry:lint                     # forge fmt --check + prettier on scripts-js
 yarn foundry:chain                    # plain Anvil; deploys IdleSource (no yield)
 yarn foundry:fork                     # Anvil forking testnet, chain id 296; deploys the SaucerSwap source
 yarn foundry:deploy --network hedera_testnet
@@ -86,4 +86,4 @@ If `forge` reports "No tests found" or "No contract bytecode" right after a succ
 | `CONSTANT_CASE` | constants and immutables |
 | `snake_case` | Foundry script files |
 
-Run `forge fmt` and `yarn next:lint` before finishing. A change to contract behavior ships with a test that fails without it.
+Commits go through the husky pre-commit hook (`yarn lint-staged`): ESLint and type-check for staged frontend files, and `foundry:lint` plus `foundry:test` when Solidity or scripts are staged. Never bypass it with `--no-verify`. Run `forge fmt` and `yarn next:lint` before finishing. A change to contract behavior ships with a test that fails without it.
