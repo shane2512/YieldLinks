@@ -1,82 +1,57 @@
-# Foundry package (Hedera)
+# Foundry package
 
-Solidity contracts, Forge scripts, and tests for the Hedera EVM.
+Contracts, deploy script and tests for YieldLinks. The product overview is in the [root README](../../README.md); read [`docs/THREAT_MODEL.md`](../../docs/THREAT_MODEL.md) before changing a contract.
 
 ## Setup
 
-Forge dependencies are tracked as git submodules under `packages/foundry/lib`.
-Initialize them from the repo root:
+Forge dependencies are git submodules under `lib/`. From the repo root:
 
 ```bash
 git submodule update --init --recursive
 ```
 
----
+## Contracts
 
-## Deploy (Foundry)
+| File | Role |
+| --- | --- |
+| `contracts/YieldLinks.sol` | Escrow against a throwaway key, pooled share accounting, EIP-712 claims, refunds. Holds no tokens. |
+| `contracts/interfaces/IYieldSource.sol` | Where escrowed tokens sit and earn. Implement it to add a venue. |
+| `contracts/sources/ControlledSource.sol` | One-time controller binding, HBAR reserve, HIP-904 payout. |
+| `contracts/sources/SauceStakingSource.sol` | Stakes SAUCE in SaucerSwap's Infinity Pool. |
+| `contracts/sources/IdleSource.sol` | No yield. Reference implementation and plain-Anvil fallback. |
+| `contracts/libraries/HtsLib.sol` | HTS association and airdrop; no-ops where HTS does not exist. |
 
-From the repo root, contract deploys for this package use **`yarn foundry:deploy`** (runs `packages/foundry`’s deploy script). Inside `packages/foundry`, use **`yarn deploy`** (same entrypoint).
+## Tests
 
-- **Local (recommended):** Start the shared local chain from the repo root, then deploy with `--network localhost` (RPC `http://127.0.0.1:8545`).
+```bash
+yarn test                 # forge test: 34 tests on a plain EVM, no Hedera node needed
+yarn test:testnet         # same suite against a testnet fork (needs --ffi and a mirror node)
+```
 
-  ```bash
-  yarn hardhat:chain
-  ```
+The suite covers accounting and yield for all three yield policies, front-running, replay and key reuse, expiry and refunds, the first-depositor inflation attack, a solvency fuzz test, the staking source against a mock Infinity Pool, and HIP-904 delivery against a mock HTS etched at `0x167`.
 
-  In another terminal (from repo root or this package):
+## Deploy
 
-  ```bash
-  yarn foundry:deploy --network localhost
-  ```
+```bash
+yarn foundry:account:generate            # from the repo root: create a keystore funded on Hedera
+yarn foundry:deploy --network hedera_testnet
+```
 
-  This uses the default keystore `scaffold-hbar-default` where applicable (see `Makefile` / `parseArgs.js`).
-  The deploy flow auto-creates the local `deployments/` directory before writing `deployments/<chainId>.json`.
+The script chooses the source by chain id (`296` and `295` stake SAUCE, anything else uses `IdleSource`), binds it to `YieldLinks`, writes `deployments/<chainId>.json`, and regenerates `packages/nextjs/contracts/deployedContracts.ts`. The deployer address must be an account that exists on Hedera; fund it from the [Hedera Portal faucet](https://portal.hedera.com/faucet).
 
-- **Plain Anvil (no Hedera fork):** `yarn chain` inside `packages/foundry` runs plain `anvil`—useful for quick iteration, not for full Hedera/HTS parity.
+Optional environment: `CHARITY_ADDRESS` (defaults to the deployer) and `SOURCE_HBAR_RESERVE` (HBAR for account-creation fees, in wei-style units; the deployer can reclaim it with `withdrawHbar`).
 
-- **Hedera testnet/mainnet:** Use `yarn foundry:deploy --network hedera_testnet` (or `hedera_mainnet`). You **must** use a keystore whose address is a **Hedera-created account** (created and funded via [Hedera Portal](https://portal.hedera.com) or faucet). If you see `Requested resource not found. address '0x...'`, that address does not exist on Hedera. From the repo root, create or import one with `yarn foundry:account:generate` or `yarn foundry:account:import`, then deploy with `--keystore <name>`. For multi-contract deploys, the Makefile uses `--slow` so each transaction is confirmed before the next (avoids `WRONG_NONCE` on Hedera when both txs are in flight).
+## Live demo
 
----
+```bash
+yarn foundry:demo
+```
 
-## Tests (Foundry)
+Creates a link, claims it to an address Hedera has never seen, then creates and cancels a second link, printing a HashScan link for each transaction. Needs `DEPLOYER_PRIVATE_KEY` in `.env` and at least 4 testnet SAUCE.
 
-- **`yarn test`** inside `packages/foundry` (or `forge test`) – Runs tests on a **local Anvil** chain (no Hedera fork).  
-  - **HederaToken** (ERC-20) tests pass.  
-  - **HtsTokenCreator** (HTS precompile) tests are **skipped** – these need a Hedera fork or live RPC.
+## Local chains
 
-- **`yarn test:local`** inside `packages/foundry` (or `forge test --fork-url http://127.0.0.1:8545 --chain-id 296 --ffi`) – Runs tests against whatever serves **JSON-RPC on 127.0.0.1:8545** with **chain id 296**.
+- `yarn chain` runs plain Anvil. The deploy uses `IdleSource`, so the app works without yield.
+- `yarn fork` runs Anvil forked from Hedera testnet with chain id 296, so the SaucerSwap source and HTS behave as on the network.
 
-  **Local setup:**
-
-  ```bash
-  yarn hardhat:chain
-  ```
-
-  Then in another terminal from the repo root:
-
-  ```bash
-  yarn foundry:test:local
-  ```
-
-  Or from this package: `yarn test:local`.
-
-  This command attaches to the shared local JSON-RPC at `:8545`.
-
-- **`yarn test:testnet`** inside `packages/foundry` – Fork from Hedera testnet RPC (`HEDERA_RPC_URL` or default) with [hedera-forking](https://github.com/hashgraph/hedera-forking) HTS emulation via `htsSetup()` where applicable.
-
-- **`yarn test:mainnet`** inside `packages/foundry` – Fork from Hedera mainnet RPC (read-only / snapshot style checks).
-
----
-
-## Summary
-
-| Command             | Chain        | HederaToken | HtsTokenCreator |
-| ------------------- | ------------ | ----------- | --------------- |
-| `yarn test`         | Anvil        | ✅          | ⏭️ (skipped)    |
-| `yarn test:local`   | Local fork\* | ✅          | ✅              |
-| `yarn test:testnet` | Testnet RPC  | ✅          | ✅              |
-| `yarn test:mainnet` | Mainnet RPC  | ✅          | ✅ (read-only)  |
-
-\* Run `yarn hardhat:chain` from the repo root first.
-
-For more on fork testing with HTS emulation, see [forking the Hedera network for local testing](https://docs.hedera.com/hedera/core-concepts/smart-contracts/forking-hedera-network-for-local-testing).
+On Windows the deploy, chain and fork scripts need `make` (use WSL or Git Bash); tests and lint do not.

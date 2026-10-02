@@ -1,138 +1,89 @@
 # Agent instructions
 
-Briefing for coding agents in this app (Cursor, Claude Code, Codex). Claude Code loads it through `CLAUDE.md`.
+Briefing for coding agents in this repo (Claude Code, Cursor, Codex). Claude Code loads it through `CLAUDE.md`.
 
-This is a Scaffold-HBAR dApp: Next.js App Router, wallet connect, Debug Contracts, and Hedera networks (testnet, mainnet, local fork). The CLI may have left only Hardhat or only Foundry.
+## What this is
 
-Use the package manager this project was created with (`packageManager` in the root `package.json`, or the lockfile). Examples use `yarn`; if the app was created with npm, swap `yarn <script>` for `npm run <script>`.
+**YieldLinks**, a scaffold-hbar template: a sender stakes SAUCE in SaucerSwap's Infinity Pool and gets a link; the recipient claims with no wallet, no HBAR and no prior Hedera account. Read `README.md` first for the flow and `docs/THREAT_MODEL.md` before touching any contract. `docs/HEDERA_NOTES.md` lists platform gotchas that are easy to rediscover the slow way.
 
-## Which Solidity package
-
-- `packages/hardhat` exists → Hardhat (`hardhat-deploy`)
-- `packages/foundry` exists → Foundry (Forge scripts)
-- `packages/nextjs` is always the frontend (App Router, RainbowKit, Wagmi, Viem, DaisyUI)
-
-Follow only the flavor that is present.
+Stack: Foundry contracts (`packages/foundry`) and a Next.js App Router frontend (`packages/nextjs`, RainbowKit, Wagmi, Viem, DaisyUI). There is no Hardhat package. Use Yarn (`packageManager` in the root `package.json`).
 
 ## Commands
 
-Package-prefixed scripts for package-specific work. Keep only truly cross-workspace commands unprefixed.
-
 ```bash
-# Local chain + deploy + frontend (separate terminals)
-yarn hardhat:chain    # Hedera-forked Hardhat node on 8545
-yarn hardhat:deploy --network localhost
-yarn foundry:chain    # Anvil from the Foundry package
-yarn foundry:deploy
-yarn next:start       # http://localhost:3000
+# Contracts (packages/foundry)
+yarn foundry:test                     # forge test, 34 tests
+yarn foundry:lint                     # forge fmt --check + prettier on scripts-js (needs make)
+yarn foundry:chain                    # plain Anvil; deploys IdleSource (no yield)
+yarn foundry:fork                     # Anvil forking testnet, chain id 296; deploys the SaucerSwap source
+yarn foundry:deploy --network hedera_testnet
+yarn foundry:demo                     # live testnet proof: create, claim to a new address, cancel
 
-# Frontend only
-yarn next:dev
-
-# Quality / build
-yarn lint
-yarn format
+# Frontend (packages/nextjs)
+yarn next:dev                         # http://localhost:3000
+yarn next:lint                        # eslint . --max-warnings=0
+yarn next:check-types
 yarn next:build
-yarn hardhat:compile
-yarn foundry:compile
-
-# Live networks
-yarn hardhat:deploy --network hederaTestnet   # or hederaMainnet
-yarn foundry:deploy --network hedera_testnet  # or hedera_mainnet
-yarn hardhat:verify -- HederaToken testnet [0xAddress]
-yarn foundry:verify:testnet
-
-# Deployer account
-yarn hardhat:account:generate
-yarn hardhat:account:import
-yarn hardhat:account
 ```
 
-`yarn hardhat:deploy` without `--network localhost` targets the in-process `hardhat` network, not the long-running fork.
+If `forge` reports "No tests found" or "No contract bytecode" right after a successful build, run `forge clean` and rebuild (stale incremental cache).
 
 ## Layout
 
-### Hardhat
+- `packages/foundry/contracts/YieldLinks.sol`: escrow, pooled shares, EIP-712 claims, refunds. Holds no tokens itself.
+- `packages/foundry/contracts/interfaces/IYieldSource.sol`: the seam. A source is the **only** token holder.
+- `packages/foundry/contracts/sources/`: `ControlledSource` (one-time controller binding, HIP-904 `_send`), `SauceStakingSource` (SaucerSwap), `IdleSource` (no yield).
+- `packages/foundry/contracts/libraries/HtsLib.sol`: HTS association and airdrop; no-ops where `0x167` has no code.
+- `packages/foundry/script/Deploy.s.sol`: picks the source by chain id, binds it, writes `deployments/<chainId>.json`.
+- `packages/foundry/test/`: unit, fuzz, attack and HTS-delivery tests; mocks in `test/mocks/`.
+- `packages/nextjs/app/api/claim/route.ts`: the gas-paying relayer.
+- `packages/nextjs/components/yieldlinks/` and `utils/yieldlinks/`: the product UI and the key/URL/signature helpers.
+- `packages/nextjs/contracts/deployedContracts.ts`: **generated** by the deploy script. Never edit it by hand; run a deploy instead.
 
-- Contracts: `packages/hardhat/contracts/`
-- Deploy scripts: `packages/hardhat/deploy/`
-- Tests: `packages/hardhat/test/`
-- Config: `packages/hardhat/hardhat.config.ts`
-- Tagged deploy: if `deployHederaToken.tags = ["HederaToken"]`, run `yarn hardhat:deploy --tags HederaToken`
+## Invariants (do not break these)
 
-### Foundry
+1. **A link key is single use, forever.** Links are never deleted; only `status` changes. Deleting a link or reusing a key lets an old signature be replayed.
+2. **Claims are bound to the recipient.** The EIP-712 payload is `Claim(linkKey, recipient)` in the `YieldLinks`/`1` domain with chain id and contract. Changing the typed data means changing `utils/yieldlinks/index.ts`, the contract's `CLAIM_TYPEHASH` and the tests together.
+3. **`YieldLinks` never holds tokens.** All custody and payout goes through the `IYieldSource`. Value is priced from `totalAssets` before any withdrawal in `_settle`.
+4. **Settle before you pay.** `_settle` burns shares and closes the link before any external call.
+5. **No owner, no upgrade path, no keeper.** Refunds are permissionless after expiry. Do not add admin powers over escrow or a dependency on Hedera scheduling (see `docs/HEDERA_NOTES.md`, HSS bug).
+6. **Never hardcode token decimals.** SAUCE is 6, but read it where you can.
 
-- Contracts: `packages/foundry/contracts/`
-- Deploy scripts: `packages/foundry/script/` (`Deploy.s.sol`, `DeployHederaToken.s.sol`, `DeployHtsTokenCreator.s.sol`)
-- Tests: `packages/foundry/test/`
-- Config: `packages/foundry/foundry.toml`
-- One contract: `yarn foundry:deploy --file DeployHederaToken.s.sol`
+## Secrets and links
 
-### After deploy
+- Never commit `.env`, `.env.local`, private keys or keystores. `RELAYER_PRIVATE_KEY` is server-only and must never get a `NEXT_PUBLIC_` prefix.
+- A claim link's private key lives only in the URL **fragment** (`#k=...`), which browsers never send to a server. Do not log it, put it in a query string, or send it to an API route. The relayer receives a signature, never the key.
 
-ABIs and addresses are written to `packages/nextjs/contracts/deployedContracts.ts`. Put third-party contracts in `packages/nextjs/contracts/externalContracts.ts`.
+## Adding a yield source
 
-Sample contracts on this starter: `HederaToken` (ERC-20) and `HtsTokenCreator` (HTS precompile at `0x167`).
+1. Create `contracts/sources/MySource.sol` inheriting `ControlledSource`.
+2. Implement `totalAssets`, `deposit` (pull from `from`, put to work) and `withdraw` (unwind, then `_send`). Associate any HTS token it holds with `HtsLib.associate`.
+3. Round so a withdrawal never pays out more than `totalAssets` reports.
+4. Add a mock venue under `test/mocks/` and tests mirroring `SauceStakingSource.t.sol`: deposit, yield flowing to the link, claim, refund, wrong token, non-controller.
+5. Select it in `script/Deploy.s.sol`, deploy, and the frontend picks it up from `deployedContracts.ts`. If the token changes, update the `SAUCE()` read in `CreateLinkForm.tsx` and the `TOKEN_DECIMALS` in `utils/yieldlinks`.
 
-## Frontend contract interaction
+## Hedera pitfalls (full detail in `docs/HEDERA_NOTES.md`)
 
-Hooks live in `packages/nextjs/hooks/scaffold-hbar`. Use the names that exist in the codebase:
+- Send legacy transactions with the node's gas price.
+- Take the nonce from the mirror node, not from Hashio, after any failed transaction.
+- `SauceStakingSource.deposit` pulls from `from`, so the sender approves the **source** address, not `YieldLinks`.
+- The SaucerSwap Mothership needs an allowance on `enter` (SAUCE) **and** on `leave` (xSAUCE).
+- Use the mirror node's `/contracts/results/{hash}/actions` to trace a revert; Hashio gives no trace.
 
-- `useScaffoldReadContract` — not `useScaffoldContractRead`
-- `useScaffoldWriteContract` — not `useScaffoldContractWrite`
+## Frontend conventions
 
-Also: `useScaffoldWatchContractEvent`, `useScaffoldEventHistory`, `useDeployedContractInfo`, `useScaffoldContract`, `useTransactor`.
-
-```typescript
-const { data: balance } = useScaffoldReadContract({
-  contractName: "HederaToken",
-  functionName: "balanceOf",
-  args: [connectedAddress],
-});
-
-const { writeContractAsync, isPending } = useScaffoldWriteContract({
-  contractName: "HederaToken",
-});
-
-await writeContractAsync({
-  functionName: "mint",
-  args: [connectedAddress, parseEther("1")],
-});
-```
-
-`HederaToken.mint` is `onlyOwner`. For HTS creation, `HtsTokenCreator.createToken` is payable (HTS fee via `msg.value`) and emits `TokenCreated`.
-
-### UI
-
-Use `@scaffold-hbar-ui/components` for web3 UI: `Address`, `AddressInput`, `Balance`, `EtherInput`, `IntegerInput`.
-
-Use DaisyUI classes, not raw Tailwind when a DaisyUI component exists:
-
-```tsx
-<button className="btn btn-primary">Connect</button>
-```
-
-### Networks
-
-- Hardhat: `packages/hardhat/hardhat.config.ts` (`hederaTestnet` 296, `hederaMainnet` 295)
-- Foundry: `packages/foundry/foundry.toml` (`hedera_testnet`, `hedera_mainnet`)
-- Next.js: `packages/nextjs/scaffold.config.ts` (target networks, polling, RPC overrides, WalletConnect)
+- Contract hooks live in `packages/nextjs/hooks/scaffold-hbar`: `useScaffoldReadContract`, `useScaffoldWriteContract` (not the old `...ContractRead/Write` names), `useDeployedContractInfo`.
+- Pass an explicit `gas` to writes that touch HTS or SaucerSwap; estimates are unreliable for precompile-heavy calls.
+- DaisyUI classes over raw Tailwind where a component exists. Imports use the `~~` alias.
+- Prefer `type` over `interface`. No `T` prefix on types. Comments say why, not what.
 
 ## Style
 
 | Style | Use |
 | --- | --- |
-| `UpperCamelCase` | types, components |
+| `UpperCamelCase` | types, components, contracts |
 | `lowerCamelCase` | variables, functions |
-| `CONSTANT_CASE` | constants |
-| `snake_case` | Hardhat deploy files and Foundry scripts |
+| `CONSTANT_CASE` | constants and immutables |
+| `snake_case` | Foundry script files |
 
-Next.js imports use the `~~` alias:
-
-```tsx
-import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
-```
-
-App Router pages live under `packages/nextjs/app/`. Add `"use client"` when the page uses hooks.
-
-Prefer `type` over `interface`. No `T` prefix on types. Let TypeScript infer when it can. Comments should add information.
+Run `forge fmt` and `yarn next:lint` before finishing. A change to contract behavior ships with a test that fails without it.

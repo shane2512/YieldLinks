@@ -1,0 +1,48 @@
+{
+  "name": "yieldlinks",
+  "description": "Gift links that earn yield in SaucerSwap's Infinity Pool until claimed. Recipients need no wallet, HBAR or Hedera account.",
+  "version": "1.0.0",
+  "create-scaffold-hbar": {
+    "capabilities": {
+      "frontend": ["nextjs-app"],
+      "solidityFramework": ["foundry"],
+      "packageManager": ["yarn"]
+    },
+    "defaults": {
+      "frontend": "nextjs-app",
+      "solidityFramework": "foundry",
+      "packageManager": "yarn"
+    },
+    "requirements": {
+      "node": ">=20.18.3"
+    },
+    "outro": {
+      "sections": [
+        {
+          "title": "YieldLinks next steps",
+          "steps": [
+            {
+              "label": "1. Configure the relayer",
+              "command": "cp packages/nextjs/.env.example packages/nextjs/.env.local"
+            },
+            {
+              "text": "Set RELAYER_PRIVATE_KEY in packages/nextjs/.env.local to a dedicated, lightly funded Hedera testnet account. It pays claim fees so recipients need no HBAR."
+            },
+            {
+              "label": "2. Run the app",
+              "command": "{run:next:dev}"
+            },
+            {
+              "label": "3. Get test SAUCE for the sending wallet",
+              "text": "Swap testnet HBAR for SAUCE with the cast commands in the README, section Quickstart step 4."
+            },
+            {
+              "label": "4. See it work on testnet in one command",
+              "command": "{run:framework:demo}"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

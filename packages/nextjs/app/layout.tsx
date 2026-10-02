@@ -6,8 +6,8 @@ import "~~/styles/globals.css";
 import { getMetadata } from "~~/utils/scaffold-hbar/getMetadata";
 
 export const metadata = getMetadata({
-  title: "Scaffold-HBAR",
-  description: "Built with Scaffold-HBAR",
+  title: "YieldLinks",
+  description: "Send tokens as a link that earns yield until it is claimed. No wallet or HBAR needed to receive.",
 });
 
 const ScaffoldHbarApp = ({ children }: { children: React.ReactNode }) => {

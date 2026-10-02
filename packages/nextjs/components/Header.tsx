@@ -16,8 +16,12 @@ type HeaderMenuLink = {
 
 export const menuLinks: HeaderMenuLink[] = [
   {
-    label: "Home",
+    label: "Send a gift",
     href: "/",
+  },
+  {
+    label: "My links",
+    href: "/links",
   },
   {
     label: "Debug Contracts",
@@ -88,9 +92,9 @@ export const Header = () => {
             <Image alt="Hedera icon" className="cursor-pointer hidden dark:block" fill src="/Hedera-Icon-White.svg" />
           </div>
           <div className="flex flex-col">
-            <span className="font-bold leading-tight text-base">Scaffold-HBAR</span>
+            <span className="font-bold leading-tight text-base">YieldLinks</span>
             <span className="text-[10px] tracking-wider uppercase text-base-content/50 font-medium">
-              Built on Hedera
+              Gifts that grow
             </span>
           </div>
         </Link>

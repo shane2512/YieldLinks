@@ -1,0 +1,134 @@
+import { NextResponse } from "next/server";
+import {
+  Address,
+  BaseError,
+  ContractFunctionRevertedError,
+  Hex,
+  createPublicClient,
+  createWalletClient,
+  http,
+  isAddress,
+  isHex,
+} from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { hedera, hederaTestnet } from "viem/chains";
+import deployedContracts from "~~/contracts/deployedContracts";
+import scaffoldConfig from "~~/scaffold.config";
+
+/**
+ * Gas-paying relayer. A claimant needs no HBAR: they sign a claim with the link key in the browser and this
+ * route submits it. It can only ever call `claim` on the deployed YieldLinks contract, and it simulates first
+ * so a bad claim costs nothing.
+ */
+
+const CHAINS = { [hederaTestnet.id]: hederaTestnet, [hedera.id]: hedera } as const;
+const MIRROR_NODES: Record<number, string> = {
+  [hederaTestnet.id]: "https://testnet.mirrornode.hedera.com",
+  [hedera.id]: "https://mainnet-public.mirrornode.hedera.com",
+};
+
+// Claims unstake from SaucerSwap and airdrop through HTS, which is gas-heavy. Capped so a relayer cannot be drained.
+const CLAIM_GAS_LIMIT = 3_000_000n;
+const RATE_LIMIT_PER_MINUTE = 10;
+
+const hits = new Map<string, number[]>();
+let queue: Promise<unknown> = Promise.resolve();
+
+const rateLimited = (ip: string) => {
+  const now = Date.now();
+  const recent = (hits.get(ip) ?? []).filter(t => now - t < 60_000);
+  recent.push(now);
+  hits.set(ip, recent);
+  return recent.length > RATE_LIMIT_PER_MINUTE;
+};
+
+/** Hashio's nonce can lag after failed transactions (WRONG_NONCE); the mirror node is authoritative. */
+const mirrorNonce = async (chainId: number, address: Address) => {
+  try {
+    const res = await fetch(`${MIRROR_NODES[chainId]}/api/v1/accounts/${address}`, { cache: "no-store" });
+    const nonce = (await res.json()).ethereum_nonce;
+    return typeof nonce === "number" ? nonce : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const revertName = (error: unknown) => {
+  if (error instanceof BaseError) {
+    const reverted = error.walk(e => e instanceof ContractFunctionRevertedError);
+    if (reverted instanceof ContractFunctionRevertedError) return reverted.data?.errorName ?? reverted.shortMessage;
+    return error.shortMessage;
+  }
+  return error instanceof Error ? error.message : "Unknown error";
+};
+
+export async function POST(request: Request) {
+  const relayerKey = process.env.RELAYER_PRIVATE_KEY;
+  if (!relayerKey || !isHex(relayerKey)) {
+    return NextResponse.json(
+      { error: "Relayer is not configured. Set RELAYER_PRIVATE_KEY on the server." },
+      { status: 503 },
+    );
+  }
+
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
+  if (rateLimited(ip)) return NextResponse.json({ error: "Too many claims, try again in a minute." }, { status: 429 });
+
+  const body = (await request.json().catch(() => null)) as {
+    chainId?: number;
+    linkKey?: string;
+    recipient?: string;
+    signature?: string;
+  } | null;
+  const { chainId, linkKey, recipient, signature } = body ?? {};
+  if (!chainId || !(chainId in CHAINS) || !(chainId in deployedContracts)) {
+    return NextResponse.json({ error: "Unsupported network." }, { status: 400 });
+  }
+  if (!linkKey || !isAddress(linkKey) || !recipient || !isAddress(recipient) || !signature || !isHex(signature)) {
+    return NextResponse.json({ error: "Invalid claim payload." }, { status: 400 });
+  }
+
+  const chain = CHAINS[chainId as keyof typeof CHAINS];
+  const contract = deployedContracts[chainId as keyof typeof deployedContracts].YieldLinks;
+  const transport = http((scaffoldConfig.rpcOverrides as Record<number, string>)[chainId]);
+  const publicClient = createPublicClient({ chain, transport });
+  const account = privateKeyToAccount(relayerKey as Hex);
+  const walletClient = createWalletClient({ account, chain, transport });
+  const args = [linkKey, recipient, signature] as const;
+
+  try {
+    await publicClient.simulateContract({
+      address: contract.address,
+      abi: contract.abi,
+      functionName: "claim",
+      args,
+      account,
+      gas: CLAIM_GAS_LIMIT,
+    });
+  } catch (error) {
+    return NextResponse.json({ error: revertName(error) }, { status: 400 });
+  }
+
+  // One relayer key means one nonce sequence: send claims one at a time.
+  const send = queue.then(async () => {
+    const nonce = await mirrorNonce(chainId, account.address);
+    const hash = await walletClient.writeContract({
+      address: contract.address,
+      abi: contract.abi,
+      functionName: "claim",
+      args,
+      gas: CLAIM_GAS_LIMIT,
+      type: "legacy",
+      nonce,
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 45_000 }).catch(() => null);
+    return { hash, status: receipt?.status ?? "pending" };
+  });
+  queue = send.catch(() => undefined);
+
+  try {
+    return NextResponse.json(await send);
+  } catch (error) {
+    return NextResponse.json({ error: revertName(error) }, { status: 502 });
+  }
+}
