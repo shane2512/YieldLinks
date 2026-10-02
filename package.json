@@ -36,6 +36,7 @@
     "next:dev": "yarn workspace @sh/nextjs dev",
     "next:format": "yarn workspace @sh/nextjs format",
     "next:lint": "yarn workspace @sh/nextjs lint",
+    "next:test": "yarn workspace @sh/nextjs test",
     "next:serve": "yarn workspace @sh/nextjs serve",
     "next:start": "yarn workspace @sh/nextjs start",
     "postinstall": "husky",

@@ -12,6 +12,8 @@ type HeaderMenuLink = {
   label: string;
   href: string;
   icon?: React.ReactNode;
+  /** Developer tools: shown in the mobile menu, but only on extra-wide screens in the desktop nav. */
+  devTool?: boolean;
 };
 
 export const menuLinks: HeaderMenuLink[] = [
@@ -27,23 +29,25 @@ export const menuLinks: HeaderMenuLink[] = [
     label: "Debug Contracts",
     href: "/debug",
     icon: <BugAntIcon className="h-4 w-4" />,
+    devTool: true,
   },
   {
     label: "Block Explorer",
     href: "/blockexplorer",
     icon: <MagnifyingGlassIcon className="h-4 w-4" />,
+    devTool: true,
   },
 ];
 
-export const HeaderMenuLinks = () => {
+export const HeaderMenuLinks = ({ desktop = false }: { desktop?: boolean }) => {
   const pathname = usePathname();
 
   return (
     <>
-      {menuLinks.map(({ label, href, icon }) => {
+      {menuLinks.map(({ label, href, icon, devTool }) => {
         const isActive = pathname === href;
         return (
-          <li key={href}>
+          <li key={href} className={desktop && devTool ? "hidden xl:block" : undefined}>
             <Link
               href={href}
               passHref
@@ -66,14 +70,16 @@ export const HeaderMenuLinks = () => {
  */
 export const Header = () => {
   const burgerMenuRef = useRef<HTMLDetailsElement>(null);
+  // Recipients opening a gift link have no wallet and should not see wallet or developer chrome.
+  const isClaimPage = usePathname().startsWith("/claim");
   useOutsideClick(burgerMenuRef, () => {
     burgerMenuRef?.current?.removeAttribute("open");
   });
 
   return (
     <div className="sticky lg:static top-0 navbar bg-base-100 min-h-0 shrink-0 justify-between z-20 shadow-sm border-b border-base-300 px-0 sm:px-2">
-      <div className="navbar-start w-auto lg:w-1/2">
-        <details className="dropdown" ref={burgerMenuRef}>
+      <div className="navbar-start w-auto min-w-0 flex-1">
+        <details className={`dropdown ${isClaimPage ? "hidden" : ""}`} ref={burgerMenuRef}>
           <summary className="ml-1 btn btn-ghost lg:hidden hover:bg-transparent">
             <Bars3Icon className="h-1/2" />
           </summary>
@@ -86,7 +92,11 @@ export const Header = () => {
             <HeaderMenuLinks />
           </ul>
         </details>
-        <Link href="/" passHref className="hidden lg:flex items-center gap-3 ml-4 mr-6 shrink-0">
+        <Link
+          href="/"
+          passHref
+          className={`${isClaimPage ? "flex" : "hidden lg:flex"} items-center gap-3 ml-4 mr-6 shrink-0`}
+        >
           <div className="flex relative w-9 h-9">
             <Image alt="Hedera icon" className="cursor-pointer dark:hidden" fill src="/Hedera-Icon-Dark.svg" />
             <Image alt="Hedera icon" className="cursor-pointer hidden dark:block" fill src="/Hedera-Icon-White.svg" />
@@ -98,13 +108,17 @@ export const Header = () => {
             </span>
           </div>
         </Link>
-        <ul className="hidden lg:flex lg:flex-nowrap menu menu-horizontal px-1 gap-2">
-          <HeaderMenuLinks />
-        </ul>
+        {!isClaimPage && (
+          <ul className="hidden lg:flex lg:flex-nowrap menu menu-horizontal px-1 gap-2">
+            <HeaderMenuLinks desktop />
+          </ul>
+        )}
       </div>
-      <div className="navbar-end grow mr-4">
-        <RainbowKitCustomConnectButton />
-      </div>
+      {!isClaimPage && (
+        <div className="navbar-end w-auto shrink-0 mr-4">
+          <RainbowKitCustomConnectButton />
+        </div>
+      )}
     </div>
   );
 };

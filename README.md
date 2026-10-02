@@ -10,6 +10,14 @@ Use it as the starting point for any app that has to **park tokens somewhere pro
 npm create scaffold-hbar@latest -- --template shane2512/YieldLinks
 ```
 
+## What it looks like
+
+| Sender (desktop) | Recipient (phone, no wallet) |
+| --- | --- |
+| ![Create a gift link](docs/images/home-desktop.jpg) | ![Claim a gift on a phone](docs/images/claim-mobile.jpg) |
+
+The recipient's page deliberately shows no wallet, faucet or network chrome: only the gift and the claim controls.
+
 ## What it demonstrates
 
 | Capability | How it is used here |
@@ -140,7 +148,7 @@ packages/
     app/links/page.tsx            your links, cancel and refund
     app/api/claim/route.ts        gas-paying relayer
     components/yieldlinks/        create form, claim card, growing balance, link list
-    utils/yieldlinks/             key generation, claim URLs, EIP-712 signing
+    utils/yieldlinks/             key generation, claim URLs, EIP-712 signing (with unit tests)
 docs/
   THREAT_MODEL.md                 what can go wrong and what stops it
   HEDERA_NOTES.md                 platform gotchas found while building this
@@ -217,6 +225,7 @@ yarn foundry:test      # 38 tests: accounting, attacks, expiry/refund, fuzz, sta
 yarn foundry:lint      # forge fmt --check and prettier on scripts
 yarn next:lint
 yarn next:check-types
+yarn next:test         # 19 tests: claim URLs, EIP-712 signatures bound to recipient/chain/contract, formatting
 yarn next:build
 yarn foundry:demo      # live testnet proof
 ```

@@ -23,6 +23,7 @@ yarn foundry:demo                     # live testnet proof: create, claim to a n
 yarn next:dev                         # http://localhost:3000
 yarn next:lint                        # eslint . --max-warnings=0
 yarn next:check-types
+yarn next:test                        # vitest: claim URLs and EIP-712 signing
 yarn next:build
 ```
 
@@ -86,4 +87,4 @@ If `forge` reports "No tests found" or "No contract bytecode" right after a succ
 | `CONSTANT_CASE` | constants and immutables |
 | `snake_case` | Foundry script files |
 
-Commits go through the husky pre-commit hook (`yarn lint-staged`): ESLint and type-check for staged frontend files, and `foundry:lint` plus `foundry:test` when Solidity or scripts are staged. Never bypass it with `--no-verify`. Run `forge fmt` and `yarn next:lint` before finishing. A change to contract behavior ships with a test that fails without it.
+Commits go through the husky pre-commit hook (`yarn lint-staged`): ESLint, type-check and unit tests for staged frontend files, and `foundry:lint` plus `foundry:test` when Solidity or scripts are staged. Never bypass it with `--no-verify`. Run `forge fmt` and `yarn next:lint` before finishing. A change to contract behavior ships with a test that fails without it.

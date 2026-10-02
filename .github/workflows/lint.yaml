@@ -42,5 +42,8 @@ jobs:
       - name: Frontend - types
         run: yarn next:check-types
 
+      - name: Frontend - tests
+        run: yarn next:test
+
       - name: Frontend - build
         run: yarn next:build

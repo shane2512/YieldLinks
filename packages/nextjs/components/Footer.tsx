@@ -1,4 +1,5 @@
 import React from "react";
+import { usePathname } from "next/navigation";
 import { HederaPortalFaucet } from "@scaffold-hbar-ui/components";
 import { hedera } from "viem/chains";
 import { CurrencyDollarIcon } from "@heroicons/react/24/outline";
@@ -13,13 +14,15 @@ export const Footer = () => {
   const { targetNetwork } = useTargetNetwork();
   const isTestnet = targetNetwork.id !== hedera.id;
   const { price: nativeCurrencyPrice } = useFetchHbarPrice();
+  // The claim page is for people with no wallet: no HBAR price or faucet shortcuts there.
+  const isClaimPage = usePathname().startsWith("/claim");
 
   return (
     <div className="min-h-0 py-5 px-1 mb-11 lg:mb-0">
       <div>
         <div className="fixed flex justify-between items-center w-full z-10 p-4 bottom-0 left-0 pointer-events-none">
           <div className="flex flex-col md:flex-row gap-2 pointer-events-auto">
-            {nativeCurrencyPrice > 0 && (
+            {!isClaimPage && nativeCurrencyPrice > 0 && (
               <div>
                 <div className="btn btn-primary btn-sm font-normal gap-1 cursor-auto">
                   <CurrencyDollarIcon className="h-4 w-4" />
@@ -27,7 +30,7 @@ export const Footer = () => {
                 </div>
               </div>
             )}
-            {isTestnet && <HederaPortalFaucet showIcon />}
+            {!isClaimPage && isTestnet && <HederaPortalFaucet showIcon />}
           </div>
           <SwitchTheme className="pointer-events-auto" />
         </div>
@@ -36,7 +39,7 @@ export const Footer = () => {
         <ul className="menu menu-horizontal w-full">
           <div className="flex justify-center items-center gap-3 text-sm w-full text-base-content/60">
             <a
-              href="https://github.com/hedera-dev/scaffold-hbar"
+              href="https://github.com/shane2512/YieldLinks"
               target="_blank"
               rel="noreferrer"
               className="link hover:text-primary"

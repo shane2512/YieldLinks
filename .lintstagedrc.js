@@ -7,6 +7,8 @@ const buildNextEslintCommand = (filenames) =>
 
 const checkTypesNextCommand = () => "yarn next:check-types";
 
+const testNextCommand = () => "yarn next:test";
+
 // Whole-package checks (not per file): formatting, then the test suite, whenever contracts or scripts change.
 const foundryChecks = () => ["yarn foundry:lint", "yarn foundry:test"];
 
@@ -14,6 +16,7 @@ module.exports = {
   "packages/nextjs/**/*.{ts,tsx}": [
     buildNextEslintCommand,
     checkTypesNextCommand,
+    testNextCommand,
   ],
   "packages/foundry/**/*.{sol,js}": foundryChecks,
 };

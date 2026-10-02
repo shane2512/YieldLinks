@@ -161,12 +161,19 @@ export const ClaimCard = () => {
   }
 
   if (status !== "Open") {
+    const closedMessage: Record<string, { badge: string; text: string }> = {
+      None: {
+        badge: "Not found",
+        text: "We could not find this gift on this network. Check that the whole link was copied, including everything after the #.",
+      },
+      Claimed: { badge: "Claimed", text: "This gift has already been claimed." },
+      Refunded: { badge: "Taken back", text: "The sender took this gift back." },
+    };
+    const message = closedMessage[status ?? "None"];
     return (
       <div className="text-center">
-        <div className="badge badge-neutral badge-lg mb-2">{status}</div>
-        <p className="text-base-content/70">
-          {status === "Claimed" ? "This gift has already been claimed." : "The sender took this gift back."}
-        </p>
+        <div className="badge badge-neutral badge-lg mb-2">{message.badge}</div>
+        <p className="text-base-content/70">{message.text}</p>
       </div>
     );
   }
