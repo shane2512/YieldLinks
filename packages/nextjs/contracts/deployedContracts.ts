@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-hbar/contract";
 const deployedContracts = {
   296: {
     SauceStakingSource: {
-      address: "0x0d07fbc25c8fd9105a86b0177fe684409e47ac98",
+      address: "0x14eab4ef4611fe8afc2fb8b1a8626dbb3fac160d",
       abi: [
         {
           type: "constructor",
@@ -33,6 +33,19 @@ const deployedContracts = {
               name: "",
               type: "address",
               internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "MAX_ROUNDING_SHORTFALL",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
             },
           ],
           stateMutability: "view",
@@ -283,10 +296,10 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 41252276,
+      deployedOnBlock: 41273417,
     },
     YieldLinks: {
-      address: "0x8987b3d66219b08872c9c790e2b234f95db9e26a",
+      address: "0x8221b51a0daa92ff0b64f6106483a53fd5fa7aae",
       abi: [
         {
           type: "constructor",
@@ -333,6 +346,19 @@ const deployedContracts = {
         {
           type: "function",
           name: "MAX_DURATION",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "ROUNDING_DUST",
           inputs: [],
           outputs: [
             {
@@ -453,7 +479,7 @@ const deployedContracts = {
               internalType: "uint256",
             },
           ],
-          stateMutability: "nonpayable",
+          stateMutability: "payable",
         },
         {
           type: "function",
@@ -549,6 +575,30 @@ const deployedContracts = {
               type: "uint128",
               internalType: "uint128",
             },
+            {
+              name: "fee",
+              type: "uint128",
+              internalType: "uint128",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "pendingFees",
+          inputs: [
+            {
+              name: "sender",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
           ],
           stateMutability: "view",
         },
@@ -585,9 +635,72 @@ const deployedContracts = {
           stateMutability: "view",
         },
         {
+          type: "function",
+          name: "withdrawPendingFees",
+          inputs: [
+            {
+              name: "to",
+              type: "address",
+              internalType: "address payable",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
           type: "event",
           name: "EIP712DomainChanged",
           inputs: [],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "FeePaid",
+          inputs: [
+            {
+              name: "linkKey",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "FeeWithdrawn",
+          inputs: [
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
           anonymous: false,
         },
         {
@@ -666,6 +779,12 @@ const deployedContracts = {
               type: "uint8",
               indexed: false,
               internalType: "enum YieldLinks.YieldPolicy",
+            },
+            {
+              name: "fee",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
             },
           ],
           anonymous: false,
@@ -779,6 +898,11 @@ const deployedContracts = {
         },
         {
           type: "error",
+          name: "NothingToWithdraw",
+          inputs: [],
+        },
+        {
+          type: "error",
           name: "ReentrancyGuardReentrantCall",
           inputs: [],
         },
@@ -809,9 +933,873 @@ const deployedContracts = {
             },
           ],
         },
+        {
+          type: "error",
+          name: "WithdrawFailed",
+          inputs: [],
+        },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 41252279,
+      deployedOnBlock: 41273420,
+    },
+  },
+  31337: {
+    IdleSource: {
+      address: "0x700b6a60ce7eaaea56f065753d8dcb9653dbad35",
+      abi: [
+        {
+          type: "receive",
+          stateMutability: "payable",
+        },
+        {
+          type: "function",
+          name: "DEPLOYER",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "controller",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "deposit",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "from",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "setController",
+          inputs: [
+            {
+              name: "newController",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "totalAssets",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "withdraw",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "to",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "withdrawHbar",
+          inputs: [
+            {
+              name: "to",
+              type: "address",
+              internalType: "address payable",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "error",
+          name: "AirdropFailed",
+          inputs: [
+            {
+              name: "responseCode",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "AssociationFailed",
+          inputs: [
+            {
+              name: "responseCode",
+              type: "int64",
+              internalType: "int64",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ControllerAlreadySet",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "HbarTransferFailed",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NotController",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NotDeployer",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "SafeCastOverflowedIntDowncast",
+          inputs: [
+            {
+              name: "bits",
+              type: "uint8",
+              internalType: "uint8",
+            },
+            {
+              name: "value",
+              type: "int256",
+              internalType: "int256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "SafeCastOverflowedUintToInt",
+          inputs: [
+            {
+              name: "value",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "SafeERC20FailedOperation",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+      ],
+      inheritedFunctions: {},
+      deployedOnBlock: 1,
+    },
+    YieldLinks: {
+      address: "0xa15bb66138824a1c7167f5e85b957d04dd34e468",
+      abi: [
+        {
+          type: "constructor",
+          inputs: [
+            {
+              name: "source_",
+              type: "address",
+              internalType: "contract IYieldSource",
+            },
+            {
+              name: "charity_",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "CHARITY",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "CLAIM_TYPEHASH",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "MAX_DURATION",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "ROUNDING_DUST",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "SOURCE",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "contract IYieldSource",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "VIRTUAL",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "claim",
+          inputs: [
+            {
+              name: "linkKey",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "recipient",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "signature",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "claimable",
+          inputs: [
+            {
+              name: "linkKey",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "assets",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "principal",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "createLink",
+          inputs: [
+            {
+              name: "linkKey",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "expiry",
+              type: "uint64",
+              internalType: "uint64",
+            },
+            {
+              name: "policy",
+              type: "uint8",
+              internalType: "enum YieldLinks.YieldPolicy",
+            },
+          ],
+          outputs: [
+            {
+              name: "shares",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "payable",
+        },
+        {
+          type: "function",
+          name: "eip712Domain",
+          inputs: [],
+          outputs: [
+            {
+              name: "fields",
+              type: "bytes1",
+              internalType: "bytes1",
+            },
+            {
+              name: "name",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "version",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "chainId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "verifyingContract",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "salt",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "extensions",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "links",
+          inputs: [
+            {
+              name: "linkKey",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "sender",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "expiry",
+              type: "uint64",
+              internalType: "uint64",
+            },
+            {
+              name: "status",
+              type: "uint8",
+              internalType: "enum YieldLinks.Status",
+            },
+            {
+              name: "policy",
+              type: "uint8",
+              internalType: "enum YieldLinks.YieldPolicy",
+            },
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "createdAt",
+              type: "uint64",
+              internalType: "uint64",
+            },
+            {
+              name: "principal",
+              type: "uint128",
+              internalType: "uint128",
+            },
+            {
+              name: "shares",
+              type: "uint128",
+              internalType: "uint128",
+            },
+            {
+              name: "fee",
+              type: "uint128",
+              internalType: "uint128",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "pendingFees",
+          inputs: [
+            {
+              name: "sender",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "refund",
+          inputs: [
+            {
+              name: "linkKey",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "totalShares",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "withdrawPendingFees",
+          inputs: [
+            {
+              name: "to",
+              type: "address",
+              internalType: "address payable",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "event",
+          name: "EIP712DomainChanged",
+          inputs: [],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "FeePaid",
+          inputs: [
+            {
+              name: "linkKey",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "FeeWithdrawn",
+          inputs: [
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "LinkClaimed",
+          inputs: [
+            {
+              name: "linkKey",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "recipient",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "toRecipient",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "yieldTo",
+              type: "address",
+              indexed: false,
+              internalType: "address",
+            },
+            {
+              name: "yieldAmount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "LinkCreated",
+          inputs: [
+            {
+              name: "linkKey",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "token",
+              type: "address",
+              indexed: false,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "expiry",
+              type: "uint64",
+              indexed: false,
+              internalType: "uint64",
+            },
+            {
+              name: "policy",
+              type: "uint8",
+              indexed: false,
+              internalType: "enum YieldLinks.YieldPolicy",
+            },
+            {
+              name: "fee",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "LinkRefunded",
+          inputs: [
+            {
+              name: "linkKey",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "sender",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "ECDSAInvalidSignature",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "ECDSAInvalidSignatureLength",
+          inputs: [
+            {
+              name: "length",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "ECDSAInvalidSignatureS",
+          inputs: [
+            {
+              name: "s",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "InvalidAmount",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidExpiry",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidLinkKey",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidRecipient",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidShortString",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "InvalidSignature",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "LinkExists",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "LinkExpired",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "LinkNotOpen",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NoCharity",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NotRefundable",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "NothingToWithdraw",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "ReentrancyGuardReentrantCall",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "SafeCastOverflowedUintDowncast",
+          inputs: [
+            {
+              name: "bits",
+              type: "uint8",
+              internalType: "uint8",
+            },
+            {
+              name: "value",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "StringTooLong",
+          inputs: [
+            {
+              name: "str",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+        },
+        {
+          type: "error",
+          name: "WithdrawFailed",
+          inputs: [],
+        },
+      ],
+      inheritedFunctions: {},
+      deployedOnBlock: 2,
     },
   },
 } as const;

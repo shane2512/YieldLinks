@@ -3,6 +3,7 @@ import { AccountCreateTransaction, AccountId, Client, Hbar, PrivateKey, PublicKe
 import { Address, isAddress, isHex, recoverTypedDataAddress } from "viem";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { CHAINS, MIRROR_NODES, clientIp, rateLimited, relayerClients } from "~~/utils/relayer";
+import { MIN_PREPAID_FEE_TINYBAR } from "~~/utils/yieldlinks";
 import { createAccountTypedData, longZeroAddress } from "~~/utils/yieldlinks/ed25519";
 
 /**
@@ -98,9 +99,13 @@ export async function POST(request: Request) {
     functionName: "links",
     args: [linkKey],
   });
-  const [, expiry, status] = link;
+  const [, expiry, status, , , , , , fee] = link;
   if (status !== LINK_STATUS_OPEN || BigInt(Math.floor(Date.now() / 1000)) >= expiry) {
     return NextResponse.json({ error: "LinkNotOpen" }, { status: 400 });
+  }
+  // The sender prepays this account's cost and the claim. Do not spend HBAR on a link that did not.
+  if (fee < MIN_PREPAID_FEE_TINYBAR) {
+    return NextResponse.json({ error: "FeeNotPrepaid" }, { status: 402 });
   }
 
   // 3. One account per link: a retry gets the account it already created.

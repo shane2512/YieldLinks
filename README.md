@@ -31,20 +31,21 @@ The recipient's page deliberately shows no wallet, faucet or network chrome: onl
 
 ## Proof it works
 
-Everything below is a real Hedera testnet transaction from `yarn foundry:demo` (run on 2 Oct 2026).
+Everything below is a real Hedera testnet transaction from `yarn foundry:deploy` and `yarn foundry:demo` (run on 3 Oct 2026).
 
 | Step | Transaction |
 | --- | --- |
-| Deploy `SauceStakingSource` | [`0x8d77b6b3…`](https://hashscan.io/testnet/transaction/0x8d77b6b37857ab3e87b5f08972dd44ca542b5b0788d48938570de87df137f7b8) |
-| Deploy `YieldLinks` | [`0xa63d6417…`](https://hashscan.io/testnet/transaction/0xa63d6417a32a1cf78b914553e97770ac5715212df4cc55cb2d40e6f772983637) |
-| `createLink`: 2 SAUCE staked in SaucerSwap | [`0x0bb39cae…`](https://hashscan.io/testnet/transaction/0x0bb39cae0368e3aa115d844817d2afd3ee002ec02124b42baa826ba7815f4adb) |
-| `claim` to an address Hedera had never seen | [`0xc753f953…`](https://hashscan.io/testnet/transaction/0xc753f9538b8941082205486896afc8ae3ee18bcc3a7596c3bf425940f384bf7d) |
-| Account created by that claim | [`0.0.10821397`](https://hashscan.io/testnet/account/0.0.10821397) |
-| Cancel an unclaimed link | [`0x52667b31…`](https://hashscan.io/testnet/transaction/0x52667b312b5102db129708fa2030c544775a664826dba8311ab806132b22ecaf) |
+| Deploy `SauceStakingSource` | [`0x8343e36b…`](https://hashscan.io/testnet/transaction/0x8343e36b65aff4d9e078cde7882cffdf8bdef762db79e0b7787c9fc65e2a2cb3) |
+| Deploy `YieldLinks` | [`0x7c3ebaea…`](https://hashscan.io/testnet/transaction/0x7c3ebaea3d9ded236767a231fa4182b07460b22d4c0f13ac433be9be6bce6f39) |
+| `createLink`: 2 SAUCE staked in SaucerSwap, 1.5 HBAR fee prepaid | [`0x11cf2f7c…`](https://hashscan.io/testnet/transaction/0x11cf2f7c125e97cf798e5f532bfd5854df7958d992caf2a7fc18739c79619005) |
+| `claim` to an address Hedera had never seen: recipient received 2.000009 SAUCE | [`0xfda1fe45…`](https://hashscan.io/testnet/transaction/0xfda1fe45597f7ba0b8c444ff9b3b185c796e1805cd8ec13de91437ec815ca7af) |
+| Account created by that claim | [`0.0.10830206`](https://hashscan.io/testnet/account/0.0.10830206) |
+| Create a second link | [`0x79f45668…`](https://hashscan.io/testnet/transaction/0x79f456680abe3e84f6b3fa3d9866b0a96efdc52431f3c7950f757e3c59d61d5c) |
+| Cancel it: SAUCE and the prepaid fee return to the sender | [`0xa69f39d6…`](https://hashscan.io/testnet/transaction/0xa69f39d640214bdac87911671a1199f0e8f492bbedd046f88e3ebf56da9561af) |
 
-Contracts: [`YieldLinks` 0x8987B3d6…E26A](https://hashscan.io/testnet/contract/0x8987B3d66219B08872c9C790E2b234f95DB9E26A) and [`SauceStakingSource` 0x0D07FBC2…Ac98](https://hashscan.io/testnet/contract/0x0D07FBC25c8FD9105A86B0177fe684409e47Ac98).
+Contracts: [`YieldLinks` 0x8221b51a…7aaE](https://hashscan.io/testnet/contract/0x8221b51a0dAa92fF0B64f6106483A53fD5FA7aaE) and [`SauceStakingSource` 0x14eAb4ef…160d](https://hashscan.io/testnet/contract/0x14eAb4ef4611fe8AFc2FB8B1A8626dbB3fAC160d).
 
-Measured fees on testnet at about $0.105 per HBAR: claim 1.28 HBAR, create 0.76 HBAR, cancel 0.71 HBAR. Hedera fees are predictable and USD-denominated, but contract calls that unstake and create accounts are not free.
+**The sender pays every cost; the recipient gets at least the gift.** Sending 5 SAUCE delivers at least 5 SAUCE. The sender adds a 10-unit rounding reserve (0.00001 SAUCE) on top of the gift, so staking rounding can never leave the recipient short, and prepays a 1.5 HBAR network fee with the link. The fee reimburses whoever submits the claim (the relayer, which also funds the new account) and returns to the sender if the link is cancelled. The relayer refuses links that did not prepay, so it never spends HBAR on them. Measured on testnet at about $0.105 per HBAR: claim 0.74 HBAR, account creation 0.58 HBAR including the 0.1 HBAR welcome balance, about 1.32 HBAR in total, inside the prepaid 1.5.
 
 ## Quickstart (about 5 minutes)
 
@@ -124,7 +125,7 @@ sequenceDiagram
 
 **Life of a link.** `Open`, then either `Claimed` (by a valid signature before expiry) or `Refunded` (the sender cancels at any time; anyone can trigger it after expiry). Links are never deleted, so a signature for a spent link can never be replayed against a reused key.
 
-**Who keeps the yield.** Chosen per link: `Recipient` (the gift grows for them), `Sender` (recipient gets the principal) or `Charity` (the contract's `CHARITY` address).
+**Who keeps the yield.** Chosen per link: `Recipient` (the gift grows for them), `Sender` (recipient gets the gift amount, the sender keeps the growth) or `Charity` (the contract's `CHARITY` address).
 
 **Generated wallets and wallet apps.** The claim page offers three ways to receive: create a wallet in the browser, connect an existing wallet, or paste an address. A created wallet is a real **ED25519 Hedera account**, the type HashPack makes and imports by default. The browser generates the key; the relayer creates the account for its public key (`/api/create-account`, 0.1 HBAR welcome balance, unlimited token auto-association), proving nothing but that the caller holds an open link; then the claim pays that account. Because the account is created with its key, wallet apps can find it by key straight away. The success screen shows the account ID and the private key as the 96-character DER form (`302e…`) and the 64-character form, plus the import steps. An ED25519 account works in HashPack, Blade and Hedera tools but not in MetaMask, which only takes EVM (ECDSA) keys: MetaMask users should choose **My wallet**. Creating the account costs the relayer about 0.58 HBAR (0.48 fee plus the 0.1 HBAR welcome balance) on top of the claim.
 
@@ -142,7 +143,7 @@ packages/
       sources/IdleSource.sol      no yield; reference implementation, used on plain Anvil
       libraries/HtsLib.sol        association and airdrop, no-ops where HTS does not exist
     script/Deploy.s.sol           deploys source, YieldLinks, binds them
-    test/                         38 tests (unit, fuzz, stateful invariants, attack cases, HTS delivery)
+    test/                         54 tests (unit, fuzz, stateful invariants, attack cases, HTS delivery)
     scripts-js/demo.js            `yarn foundry:demo`
   nextjs/
     app/page.tsx                  send a gift
@@ -226,11 +227,11 @@ See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md). In short: a link is bearer val
 ## Testing
 
 ```bash
-yarn foundry:test      # 38 tests: accounting, attacks, expiry/refund, fuzz, stateful invariants, HTS delivery, staking source
+yarn foundry:test      # 54 tests: accounting, attacks, expiry/refund, fuzz, stateful invariants, HTS delivery, staking source
 yarn foundry:lint      # forge fmt --check and prettier on scripts
 yarn next:lint
 yarn next:check-types
-yarn next:test         # 39 tests: claim URLs, EIP-712 signatures, ED25519 wallets checked against the Hedera SDK, wallet errors
+yarn next:test         # 41 tests: claim URLs, EIP-712 signatures, ED25519 wallets checked against the Hedera SDK, wallet errors
 yarn next:build
 yarn foundry:demo      # live testnet proof
 ```

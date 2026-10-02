@@ -18,6 +18,10 @@ contract SauceStakingSource is ControlledSource {
     error UnsupportedToken(address token);
     error InsufficientAssets();
 
+    /// Each unstake rounds its shares up, and two payouts from one link (recipient, then yield) can round up by one
+    /// share more than the source holds. The later payee may then be a unit or two short; more than this reverts.
+    uint256 public constant MAX_ROUNDING_SHORTFALL = 2;
+
     IMothership public immutable MOTHERSHIP;
     IERC20 public immutable SAUCE;
     IERC20 public immutable X_SAUCE;
@@ -58,7 +62,11 @@ contract SauceStakingSource is ControlledSource {
             if (shares > held) shares = held;
             X_SAUCE.forceApprove(address(MOTHERSHIP), shares);
             MOTHERSHIP.leave(shares);
-            if (SAUCE.balanceOf(address(this)) < amount) revert InsufficientAssets();
+            uint256 balance = SAUCE.balanceOf(address(this));
+            if (balance < amount) {
+                if (amount - balance > MAX_ROUNDING_SHORTFALL) revert InsufficientAssets();
+                amount = balance;
+            }
         }
         _send(SAUCE, to, amount);
     }

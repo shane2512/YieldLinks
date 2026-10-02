@@ -43,6 +43,7 @@ contract LinksHandler is Test {
             keyOf[key] = pk;
         }
         usdc.mint(sender, type(uint128).max);
+        vm.deal(sender, 1_000_000 ether);
         vm.prank(sender);
         usdc.approve(address(source), type(uint256).max);
     }
@@ -52,18 +53,19 @@ contract LinksHandler is Test {
     }
 
     function statusOf(address key) public view returns (YieldLinks.Status status) {
-        (,, status,,,,,) = links.links(key);
+        (,, status,,,,,,) = links.links(key);
     }
 
-    function create(uint256 index, uint256 amount, uint8 policy) external {
+    function create(uint256 index, uint256 amount, uint8 policy, uint256 fee) external {
         address key = linkKeys[index % KEY_COUNT];
         if (statusOf(key) != YieldLinks.Status.None) return;
         amount = bound(amount, 1, 1_000_000 * ONE);
+        fee = bound(fee, 0, 2 ether);
         vm.prank(sender);
-        try links.createLink(
+        try links.createLink{ value: fee }(
             key, address(usdc), amount, uint64(block.timestamp + 7 days), YieldLinks.YieldPolicy(policy % 3)
         ) {
-            deposited += amount;
+            deposited += amount + links.ROUNDING_DUST();
             creates++;
         } catch { }
     }
@@ -145,11 +147,23 @@ contract InvariantsTest is StdInvariant, Test {
     function invariant_sharesMatchLinks() public view {
         uint256 sum;
         for (uint256 i = 0; i < handler.linkCount(); i++) {
-            (,, YieldLinks.Status status,,,,, uint128 shares) = links.links(handler.linkKeys(i));
+            (,, YieldLinks.Status status,,,,, uint128 shares,) = links.links(handler.linkKeys(i));
             if (status != YieldLinks.Status.Open) assertEq(shares, 0);
             sum += shares;
         }
         assertEq(links.totalShares(address(usdc)), sum);
+    }
+
+    /// Every unit of native coin the contract holds is either a prepaid fee on an open link or a credited fee waiting
+    /// for its sender: nothing is stuck, nothing is owed twice. (The handler cannot receive the coin, so claim fees take
+    /// the credit path; cancels and stranger refunds pay the sender directly.)
+    function invariant_feesAreAccountedFor() public view {
+        uint256 owed = links.pendingFees(handler.sender());
+        for (uint256 i = 0; i < handler.linkCount(); i++) {
+            (,,,,,,,, uint128 fee) = links.links(handler.linkKeys(i));
+            owed += fee;
+        }
+        assertEq(address(links).balance, owed);
     }
 
     /// Nothing is created from thin air: tokens in the source plus tokens paid out equal what went in.
@@ -169,7 +183,7 @@ contract InvariantsTest is StdInvariant, Test {
             uint256 action = r % 6;
             uint256 arg = r >> 8;
             if (action == 0) {
-                handler.create(arg, arg >> 16, uint8(arg >> 40));
+                handler.create(arg, arg >> 16, uint8(arg >> 40), arg >> 48);
             } else if (action == 1) {
                 handler.accrue(arg);
             } else if (action == 2) {
@@ -186,6 +200,7 @@ contract InvariantsTest is StdInvariant, Test {
             invariant_poolIsSolvent();
             invariant_sharesMatchLinks();
             invariant_valueIsConserved();
+            invariant_feesAreAccountedFor();
         }
         assertGt(handler.creates(), 4, "too few creates");
         assertGt(handler.claims(), 0, "no claims");

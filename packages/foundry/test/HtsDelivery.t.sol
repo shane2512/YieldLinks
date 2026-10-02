@@ -91,7 +91,7 @@ contract HtsDeliveryTest is Test {
         assertEq(hts.lastToken(), address(usdc));
         assertEq(hts.lastFrom(), address(source));
         assertEq(hts.lastTo(), recipient);
-        assertEq(hts.lastAmount(), 10_000_000); // 10 tokens at 6 decimals
+        assertEq(hts.lastAmount(), 10_000_010); // 10 tokens at 6 decimals plus the 10-unit rounding reserve
     }
 
     function test_claim_revertsWithTheHederaCodeWhenTheAirdropIsRejected() public {

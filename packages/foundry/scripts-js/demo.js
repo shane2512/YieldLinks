@@ -18,9 +18,13 @@ const MIRROR = "https://testnet.mirrornode.hedera.com";
 const CHAIN_ID = 296;
 const GAS_LIMIT = 3_000_000;
 const AMOUNT = ethers.utils.parseUnits("2", 6); // 2 SAUCE per link
+// Taken from the sender on top of the gift, so rounding can never leave the recipient short (YieldLinks.ROUNDING_DUST).
+const ROUNDING_DUST = ethers.BigNumber.from(10);
+// Prepaid by the sender: reimburses whoever submits the claim, and returns to the sender if the link is cancelled.
+const NETWORK_FEE = ethers.utils.parseEther("1.5");
 
 const linksAbi = [
-  "function createLink(address linkKey, address token, uint256 amount, uint64 expiry, uint8 policy) returns (uint256)",
+  "function createLink(address linkKey, address token, uint256 amount, uint64 expiry, uint8 policy) payable returns (uint256)",
   "function claim(address linkKey, address recipient, bytes signature)",
   "function refund(address linkKey)",
   "function claimable(address linkKey) view returns (uint256 assets, uint256 principal)",
@@ -97,7 +101,7 @@ const main = async () => {
   const sauce = new ethers.Contract(sauceAddress, erc20Abi, wallet);
 
   const balance = await sauce.balanceOf(wallet.address);
-  if (balance.lt(AMOUNT.mul(2))) {
+  if (balance.lt(AMOUNT.add(ROUNDING_DUST).mul(2))) {
     fail(
       `Need at least 4 SAUCE in ${wallet.address} (has ${fmt(balance)}).\n` +
         "Swap testnet HBAR for SAUCE on SaucerSwap, then re-run."
@@ -131,15 +135,28 @@ const main = async () => {
   const expiry = Math.floor(Date.now() / 1000) + 3600;
   const link = ethers.Wallet.createRandom();
   console.log("1. Create a gift link (stakes SAUCE in SaucerSwap)");
+  const perLink = AMOUNT.add(ROUNDING_DUST);
   if (
-    (await sauce.allowance(wallet.address, deployment.source)).lt(AMOUNT.mul(2))
+    (await sauce.allowance(wallet.address, deployment.source)).lt(
+      perLink.mul(2)
+    )
   ) {
-    await send("approve SAUCE", (o) =>
-      sauce.approve(deployment.source, AMOUNT.mul(2), o)
+    await send("approve SAUCE (2 links)", (o) =>
+      sauce.approve(deployment.source, perLink.mul(2), o)
     );
   }
-  await send("createLink", (o) =>
-    links.createLink(link.address, sauceAddress, AMOUNT, expiry, 0, o)
+  console.log(
+    `  sender pays ${fmt(
+      perLink
+    )} SAUCE (gift plus rounding reserve) and prepays ${ethers.utils.formatEther(
+      NETWORK_FEE
+    )} HBAR`
+  );
+  await send("createLink (with prepaid fee)", (o) =>
+    links.createLink(link.address, sauceAddress, AMOUNT, expiry, 0, {
+      ...o,
+      value: NETWORK_FEE,
+    })
   );
   await sleep(5000);
   const [assets, principal] = await links.claimable(link.address);
@@ -174,7 +191,16 @@ const main = async () => {
   const after = await (
     await fetch(`${MIRROR}/api/v1/accounts/${recipient}`)
   ).json();
-  console.log(`  recipient received ${fmt(received)} SAUCE`);
+  console.log(
+    `  recipient received ${fmt(received)} SAUCE for a ${fmt(
+      AMOUNT
+    )} SAUCE gift`
+  );
+  if (received.lt(AMOUNT))
+    fail(
+      "The recipient received less than the gift. That should never happen."
+    );
+  console.log("  at least the gift amount: yes");
   console.log(
     `  account created: ${hashscan(`account/${after.account}`)} (${
       after.account
@@ -184,10 +210,15 @@ const main = async () => {
   // 3. Cancel: the sender can take an unclaimed link back at any time.
   const second = ethers.Wallet.createRandom();
   console.log("3. Create a second link and cancel it");
-  await send("createLink", (o) =>
-    links.createLink(second.address, sauceAddress, AMOUNT, expiry, 0, o)
+  await send("createLink (with prepaid fee)", (o) =>
+    links.createLink(second.address, sauceAddress, AMOUNT, expiry, 0, {
+      ...o,
+      value: NETWORK_FEE,
+    })
   );
-  await send("refund (sender cancels)", (o) => links.refund(second.address, o));
+  await send("refund (sender cancels, fee returns)", (o) =>
+    links.refund(second.address, o)
+  );
 
   console.log(
     "\nDone. Every step above is a real Hedera testnet transaction.\n"

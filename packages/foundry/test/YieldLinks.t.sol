@@ -11,6 +11,8 @@ contract YieldLinksTest is Test {
     uint256 internal constant ONE = 1e6; // 1 USDC
     // Virtual shares keep a dust fraction of yield (about VIRTUAL / pool size) as inflation-attack insurance.
     uint256 internal constant DUST = 1e14; // 0.01%
+    // Taken from the sender on top of the amount so rounding can never leave the recipient short.
+    uint256 internal constant RESERVE = 10;
 
     YieldLinks internal links;
     IdleSource internal source;
@@ -70,12 +72,12 @@ contract YieldLinksTest is Test {
 
     function test_claim_paysRecipientInFull() public {
         _create(linkA, 10 * ONE, YieldLinks.YieldPolicy.Recipient);
-        assertEq(usdc.balanceOf(sender), 990 * ONE);
+        assertEq(usdc.balanceOf(sender), 990 * ONE - RESERVE, "sender pays the amount plus the rounding reserve");
 
         vm.prank(relayer);
         links.claim(linkA, recipient, _sign(keyA, linkA, recipient));
 
-        assertEq(usdc.balanceOf(recipient), 10 * ONE);
+        assertEq(usdc.balanceOf(recipient), 10 * ONE + RESERVE, "recipient gets the amount and the reserve back");
         assertEq(usdc.balanceOf(address(source)), 0);
     }
 
@@ -132,7 +134,7 @@ contract YieldLinksTest is Test {
 
     function test_createLink_recordsCreationTime() public {
         _create(linkA, 10 * ONE, YieldLinks.YieldPolicy.Recipient);
-        (,,,,, uint64 createdAt,,) = links.links(linkA);
+        (,,,,, uint64 createdAt,,,) = links.links(linkA);
         assertEq(createdAt, block.timestamp);
     }
 
@@ -154,7 +156,7 @@ contract YieldLinksTest is Test {
         links.claim(linkA, relayer, sig); // attacker swaps in their own address
 
         links.claim(linkA, recipient, sig);
-        assertEq(usdc.balanceOf(recipient), 10 * ONE);
+        assertEq(usdc.balanceOf(recipient), 10 * ONE + RESERVE);
     }
 
     function test_claim_cannotBeReplayed() public {
@@ -301,6 +303,6 @@ contract YieldLinksTest is Test {
 
         // Conservation: every unit is either paid out or left in the source as dust.
         uint256 paid = usdc.balanceOf(recipient) + usdc.balanceOf(relayer);
-        assertEq(paid + usdc.balanceOf(address(source)), uint256(a) + b + yield_);
+        assertEq(paid + usdc.balanceOf(address(source)), uint256(a) + b + 2 * RESERVE + yield_);
     }
 }

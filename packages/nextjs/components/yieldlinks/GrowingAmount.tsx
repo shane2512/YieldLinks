@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TOKEN_DECIMALS } from "~~/utils/yieldlinks";
+import { ROUNDING_DUST, TOKEN_DECIMALS } from "~~/utils/yieldlinks";
 
 type GrowingAmountProps = {
   /** Current value of the link in token base units, read on-chain at `fetchedAt`. */
@@ -30,7 +30,9 @@ export const GrowingAmount = ({ assets, principal, createdAt, fetchedAt, symbol 
   }, []);
 
   const unit = 10 ** TOKEN_DECIMALS;
-  const gained = assets > principal ? Number(assets - principal) : 0;
+  // The sender adds a tiny rounding reserve on top of the gift. It is part of the value but it is not yield, so it must
+  // not show up as earnings or feed the per-day estimate.
+  const gained = assets > principal + ROUNDING_DUST ? Number(assets - principal - ROUNDING_DUST) : 0;
   const ageSeconds = Math.max(1, fetchedAt / 1000 - createdAt);
   const perSecond = gained / ageSeconds;
   const sinceRead = Math.min(MAX_EXTRAPOLATION_SECONDS, Math.max(0, (now - fetchedAt) / 1000));

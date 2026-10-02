@@ -35,7 +35,11 @@ Platform behavior found while building this template, each verified against Hede
 
 Do not rely on either. Keep a small HBAR reserve on the source (the deployer can reclaim it with `withdrawHbar`) and re-check this on the network you deploy to.
 
-**Measured fees** (testnet, about $0.105 per HBAR, 2 Oct 2026): claim 1.28 HBAR, create 0.76 HBAR, cancel 0.71 HBAR.
+**Measured fees** (testnet, about $0.105 per HBAR, 3 Oct 2026): claim 0.74 HBAR, account creation 0.58 HBAR including the 0.1 HBAR welcome balance, about 1.32 HBAR together. The sender prepays 1.5 HBAR per link to cover this.
+
+**`msg.value` units.** Inside the EVM `msg.value` is in tinybar (8 decimals), but JSON-RPC and wallets show weibar (18 decimals). Sending 1.5 HBAR arrives as `150_000_000`. `YieldLinks` stores the fee in tinybar and the relayer compares against `MIN_PREPAID_FEE_TINYBAR`.
+
+**Fuzzing found two real rounding bugs.** (1) For very small deposits the share-priced value could exceed what the pool holds, so claim and refund reverted; `_quote` is now capped at `totalAssets`. (2) A second payout from the same pool could come up one unit short after `leave`; `SauceStakingSource` tolerates a shortfall of at most 2 units and reverts beyond that.
 
 ## Accounts, keys and wallet apps
 

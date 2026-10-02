@@ -23,6 +23,8 @@ const RELAYER_ERRORS: Record<string, string> = {
   LinkNotOpen: "This gift was already claimed or taken back by the sender.",
   LinkExpired: "This link has expired. The sender can take the gift back.",
   InvalidSignature: "This link could not be verified. Check that the whole link was copied.",
+  FeeNotPrepaid:
+    "The sender did not prepay the network fee for this link, so it cannot be claimed here. Ask them for a new link.",
 };
 
 const formatTimeLeft = (seconds: number) => {

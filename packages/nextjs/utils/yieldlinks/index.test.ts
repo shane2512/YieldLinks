@@ -1,4 +1,7 @@
 import {
+  MIN_PREPAID_FEE_TINYBAR,
+  NETWORK_FEE_HBAR,
+  ROUNDING_DUST,
   buildClaimUrl,
   claimTypedData,
   describeWalletError,
@@ -8,7 +11,7 @@ import {
   parseClaimHash,
   signClaim,
 } from "./index";
-import { recoverTypedDataAddress } from "viem";
+import { parseUnits, recoverTypedDataAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { describe, expect, it } from "vitest";
 
@@ -146,5 +149,16 @@ describe("describeWalletError", () => {
     expect(describeWalletError("a string")).toBe("Something went wrong. Please try again.");
     expect(describeWalletError(undefined)).toBe("Something went wrong. Please try again.");
     expect(describeWalletError(new Error("x".repeat(500))).length).toBeLessThanOrEqual(200);
+  });
+});
+
+describe("fee constants", () => {
+  it("the fee the app asks the sender to prepay always covers the minimum the relayer requires", () => {
+    // The contract stores the fee in tinybar (8 decimals).
+    expect(parseUnits(NETWORK_FEE_HBAR, 8)).toBeGreaterThanOrEqual(MIN_PREPAID_FEE_TINYBAR);
+  });
+
+  it("the rounding reserve matches the contract constant YieldLinks.ROUNDING_DUST", () => {
+    expect(ROUNDING_DUST).toBe(10n);
   });
 });

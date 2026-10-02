@@ -4,6 +4,26 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 /** SAUCE (and xSAUCE) use 6 decimals on Hedera. */
 export const TOKEN_DECIMALS = 6;
 
+/**
+ * Extra tokens the contract takes from the sender on top of the gift (YieldLinks.ROUNDING_DUST), so rounding in the
+ * staking pool can never leave the recipient with less than the amount the sender chose.
+ */
+export const ROUNDING_DUST = 10n;
+
+/**
+ * HBAR the sender prepays when creating a link. It reimburses the relayer for creating the recipient's account and
+ * submitting the claim (measured on testnet: about 1.32 HBAR), and comes back to the sender if the link is cancelled or
+ * expires.
+ */
+export const NETWORK_FEE_HBAR = "1.5";
+
+/**
+ * Smallest prepaid fee the relayer will work for. The contract stores the fee in tinybar (8 decimals), even though the
+ * JSON-RPC shows the same HBAR with 18. Creating the recipient's account costs about 0.58 HBAR and submitting the claim
+ * about 0.74, so 1.35 HBAR covers both.
+ */
+export const MIN_PREPAID_FEE_TINYBAR = 135_000_000n;
+
 export const YIELD_POLICIES = [
   { value: 0, label: "Recipient", hint: "The gift grows for them" },
   { value: 1, label: "Me", hint: "I keep the yield, they get the principal" },

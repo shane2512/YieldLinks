@@ -12,7 +12,7 @@ Stack: Foundry contracts (`packages/foundry`) and a Next.js App Router frontend 
 
 ```bash
 # Contracts (packages/foundry)
-yarn foundry:test                     # forge test, 38 tests incl. stateful invariants
+yarn foundry:test                     # forge test, 54 tests incl. fuzz and stateful invariants
 yarn foundry:lint                     # forge fmt --check + prettier on scripts-js
 yarn foundry:chain                    # plain Anvil; deploys IdleSource (no yield)
 yarn foundry:fork                     # Anvil forking testnet, chain id 296; deploys the SaucerSwap source
@@ -50,6 +50,7 @@ If `forge` reports "No tests found" or "No contract bytecode" right after a succ
 5. **No owner, no upgrade path, no keeper.** Refunds are permissionless after expiry. Do not add admin powers over escrow or a dependency on Hedera scheduling (see `docs/HEDERA_NOTES.md`, HSS bug).
 6. **Never hardcode token decimals.** SAUCE is 6, but read it where you can.
 7. **`/api/create-account` must never create an account for a caller who does not hold an open link.** Keep the link-key signature check and the open-and-unexpired check, and keep the signature bound to the public key.
+8. **The sender pays every cost; the recipient gets at least the amount.** `createLink` takes `amount + ROUNDING_DUST` in tokens and a prepaid HBAR `msg.value` (stored in tinybar, 8 decimals, not the 18-decimal weibar the RPC shows). Claim and refund pay it to the submitter, falling back to `pendingFees`. Link value is capped at `totalAssets`. The relayer and `/api/create-account` must refuse links whose fee is below `MIN_PREPAID_FEE_TINYBAR`. `test/Guarantees.t.sol` and the fee invariant guard this.
 
 ## Secrets and links
 

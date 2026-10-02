@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { BaseError, ContractFunctionRevertedError, isAddress, isHex } from "viem";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { CHAINS, clientIp, enqueue, mirrorNonce, rateLimited, relayerClients } from "~~/utils/relayer";
+import { MIN_PREPAID_FEE_TINYBAR } from "~~/utils/yieldlinks";
 
 /**
  * Gas-paying relayer. A claimant needs no HBAR: they sign a claim with the link key in the browser and this
@@ -50,6 +51,17 @@ export async function POST(request: Request) {
 
   const contract = deployedContracts[chainId as keyof typeof deployedContracts].YieldLinks;
   const args = [linkKey, recipient, signature] as const;
+
+  // The sender prepays the relayer's costs when creating the link. Do not spend HBAR on a link that did not.
+  const link = await clients.publicClient.readContract({
+    address: contract.address,
+    abi: contract.abi,
+    functionName: "links",
+    args: [linkKey],
+  });
+  if (link[8] < MIN_PREPAID_FEE_TINYBAR) {
+    return NextResponse.json({ error: "FeeNotPrepaid" }, { status: 402 });
+  }
 
   // A recipient account created seconds ago can be invisible to the simulating node for a moment, which Hedera reports
   // as INVALID_ALIAS_KEY. That one error is worth a couple of short retries; every other revert is final.

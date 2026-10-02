@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { formatUnits } from "viem";
 import { useAccount, useReadContracts } from "wagmi";
 import { CheckIcon, ClipboardDocumentIcon } from "@heroicons/react/24/outline";
 import { useDeployedContractInfo, useScaffoldWriteContract, useTargetNetwork } from "~~/hooks/scaffold-hbar";
@@ -87,7 +88,7 @@ export const MyLinks = () => {
     <div className="flex flex-col gap-3">
       {stored.map((link, i) => {
         const linkData = data?.[i * 2]?.result as
-          | readonly [string, bigint, number, string, string, bigint, bigint, bigint]
+          | readonly [string, bigint, number, number, string, bigint, bigint, bigint, bigint]
           | undefined;
         const claimable = data?.[i * 2 + 1]?.result as readonly [bigint, bigint] | undefined;
         const status = linkData ? LINK_STATUS[linkData[2]] : undefined;
@@ -109,6 +110,11 @@ export const MyLinks = () => {
                 <div className="mt-2 font-mono text-lg tabular-nums">
                   {formatToken(claimable[0], 6)} <span className="text-sm text-base-content/60">SAUCE</span>
                   <span className="ml-2 text-xs text-base-content/50">from {formatToken(claimable[1], 4)}</span>
+                </div>
+              )}
+              {linkData && status === "Open" && linkData[8] > 0n && (
+                <div className="mt-1 text-xs text-base-content/50">
+                  Network fee prepaid: {formatUnits(linkData[8], 8)} HBAR, returned to you if you cancel
                 </div>
               )}
             </div>

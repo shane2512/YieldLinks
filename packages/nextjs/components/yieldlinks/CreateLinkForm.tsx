@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { erc20Abi, parseUnits } from "viem";
-import { useAccount, usePublicClient, useReadContract, useSwitchChain, useWriteContract } from "wagmi";
+import { erc20Abi, formatEther, parseEther, parseUnits } from "viem";
+import { useAccount, useBalance, usePublicClient, useReadContract, useSwitchChain, useWriteContract } from "wagmi";
 import { CheckIcon, ClipboardDocumentIcon } from "@heroicons/react/24/outline";
 import { RainbowKitCustomConnectButton } from "~~/components/scaffold-hbar";
 import {
@@ -15,6 +15,8 @@ import {
 import { notification } from "~~/utils/scaffold-hbar";
 import {
   EXPIRY_OPTIONS,
+  NETWORK_FEE_HBAR,
+  ROUNDING_DUST,
   TOKEN_DECIMALS,
   YIELD_POLICIES,
   buildClaimUrl,
@@ -27,6 +29,10 @@ import {
 
 // createLink associates, transfers and stakes in one call; HTS precompile calls are not estimated reliably.
 const CREATE_GAS_LIMIT = 2_000_000n;
+
+const NETWORK_FEE = parseEther(NETWORK_FEE_HBAR);
+// Headroom for the sender's own two transactions (approve and create), paid from the same wallet.
+const GAS_HEADROOM = parseEther("1");
 
 type Created = { url: string; txHash: string };
 
@@ -61,6 +67,12 @@ export const CreateLinkForm = () => {
     query: { enabled: !!sauce && !!address && !!source },
   });
 
+  const { data: hbarBalance } = useBalance({
+    address,
+    chainId: targetNetwork.id,
+    query: { enabled: !!address, refetchInterval: 15_000 },
+  });
+
   const { writeContractAsync: writeToken } = useWriteContract();
   const { writeContractAsync: writeLinks } = useScaffoldWriteContract({ contractName: "YieldLinks" });
 
@@ -70,21 +82,32 @@ export const CreateLinkForm = () => {
   } catch {
     parsed = null;
   }
-  const insufficient = parsed !== null && balance !== undefined && parsed > balance;
+  // The contract takes the gift plus a tiny rounding reserve, so the recipient never gets less than the gift.
+  const required = parsed === null ? null : parsed + ROUNDING_DUST;
+  const insufficient = required !== null && balance !== undefined && required > balance;
+  const lacksHbar = hbarBalance !== undefined && hbarBalance.value < NETWORK_FEE + GAS_HEADROOM;
   const wrongNetwork = !!address && !!chain && chain.id !== targetNetwork.id;
   const canSubmit =
-    !!address && !!sauce && !!source && !!parsed && parsed > 0n && !insufficient && !busy && !wrongNetwork;
+    !!address &&
+    !!sauce &&
+    !!source &&
+    !!parsed &&
+    parsed > 0n &&
+    !insufficient &&
+    !lacksHbar &&
+    !busy &&
+    !wrongNetwork;
 
   const submit = async () => {
-    if (!canSubmit || !parsed || !sauce || !source || !publicClient) return;
+    if (!canSubmit || !parsed || !required || !sauce || !source || !publicClient) return;
     try {
-      if ((allowance ?? 0n) < parsed) {
+      if ((allowance ?? 0n) < required) {
         setBusy("Approving SAUCE…");
         const approveHash = await writeToken({
           address: sauce,
           abi: erc20Abi,
           functionName: "approve",
-          args: [source.address, parsed],
+          args: [source.address, required],
           // Pin the account and network so a mismatch fails with a clear message, not a wallet-level error.
           account: address,
           chainId: targetNetwork.id,
@@ -99,6 +122,9 @@ export const CreateLinkForm = () => {
       const txHash = await writeLinks({
         functionName: "createLink",
         args: [keypair.address, sauce, parsed, expiresAt, policy],
+        // The prepaid network fee: taken from this wallet now, paid to whoever submits the claim, and returned to this
+        // wallet if the link is cancelled or expires.
+        value: NETWORK_FEE,
         gas: CREATE_GAS_LIMIT,
       });
       if (!txHash) return;
@@ -218,6 +244,34 @@ export const CreateLinkForm = () => {
           ))}
         </div>
       </div>
+
+      {parsed !== null && parsed > 0n && (
+        <dl className="rounded-xl bg-base-200 p-4 text-sm flex flex-col gap-2">
+          <div className="flex justify-between gap-4">
+            <dt>The recipient receives at least</dt>
+            <dd className="font-mono">{formatToken(parsed)} SAUCE</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt>Rounding reserve, so they are never short</dt>
+            <dd className="font-mono">{formatToken(ROUNDING_DUST)} SAUCE</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt>Network fee, prepaid by you</dt>
+            <dd className="font-mono">{NETWORK_FEE_HBAR} HBAR</dd>
+          </div>
+          <p className="text-xs text-base-content/60">
+            The fee pays for the recipient account and the claim, so the recipient pays nothing. It comes back to you if
+            the link is cancelled or expires.
+          </p>
+        </dl>
+      )}
+
+      {lacksHbar && (
+        <div className="alert alert-warning text-sm">
+          You need about {formatEther(NETWORK_FEE + GAS_HEADROOM)} HBAR in this wallet: the network fee plus gas for
+          your two transactions.
+        </div>
+      )}
 
       {wrongNetwork && (
         <div className="alert alert-warning flex-col sm:flex-row text-sm">
