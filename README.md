@@ -126,6 +126,8 @@ sequenceDiagram
 
 **Who keeps the yield.** Chosen per link: `Recipient` (the gift grows for them), `Sender` (recipient gets the principal) or `Charity` (the contract's `CHARITY` address).
 
+**Generated wallets and wallet apps.** The claim page offers three ways to receive: generate a wallet in the browser, connect an existing wallet, or paste an address. A generated wallet is a brand-new Hedera account, and Hedera records an account's public key only when it signs its first transaction. Wallet apps such as HashPack find accounts *by public key*, so importing the key straight after the claim reports "no account found". To avoid that, the claim page **activates** the account: `/api/activate` sends 0.1 HBAR, then the browser signs one tiny transaction with the generated key (about 0.017 HBAR). It only funds addresses that a `YieldLinks` claim paid and whose key is not yet on record, so it cannot be used as a faucet. A claim to a generated wallet therefore costs the relayer about 1.4 HBAR instead of 1.28. After activation the page shows the account ID and the import steps.
+
 ## Project layout
 
 ```
@@ -147,8 +149,10 @@ packages/
     app/claim/page.tsx            claim a gift (no wallet needed)
     app/links/page.tsx            your links, cancel and refund
     app/api/claim/route.ts        gas-paying relayer
-    components/yieldlinks/        create form, claim card, growing balance, link list
-    utils/yieldlinks/             key generation, claim URLs, EIP-712 signing (with unit tests)
+    app/api/activate/route.ts     funds a claimed wallet so wallet apps can find it
+    components/yieldlinks/        create form, claim card and success screen, growing balance, link list
+    utils/relayer/                server-only helpers shared by the relayer routes
+    utils/yieldlinks/             key generation, claim URLs, EIP-712 signing, activation rules (unit tested)
 docs/
   THREAT_MODEL.md                 what can go wrong and what stops it
   HEDERA_NOTES.md                 platform gotchas found while building this
@@ -204,7 +208,7 @@ See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md). In short: a link is bearer val
 - **No Hedera Schedule Service.** Refunds are permissionless instead of scheduled. HIP-1215 `scheduleCall` has an open bug when booked from a delegatecall frame ([#27263](https://github.com/hiero-ledger/hiero-consensus-node/issues/27263)), a 62-day expiry cap, and self-rescheduling is unproven, so nothing here depends on it.
 - **Who pays the account-creation fee depends on the network version.** On 1 Oct the HIP-904 airdrop appeared as a `TOKENAIRDROP` child record and the sending contract paid 0.48 HBAR; on 2 Oct the account was created inside the claim and the relayer paid the single 1.28 HBAR fee, with the contract untouched. The source accepts an HBAR reserve as a safety margin and the deployer can take it back. Evidence in [docs/HEDERA_NOTES.md](docs/HEDERA_NOTES.md).
 - **The relayer is a single key.** It is rate limited per IP in memory and serialized. For production use a queue, per-user limits and a dedicated funding policy.
-- **In-browser wallets are demo-grade onboarding.** The claim page can generate a key and ask the user to save it. A production app should use passkeys or an embedded wallet.
+- **In-browser wallets are demo-grade onboarding.** The claim page can generate a key and ask the user to save it. A production app should use passkeys or an embedded wallet. The activation step makes the account findable by public key (verified against the mirror node); the import steps in the UI have not been tested in HashPack itself.
 
 ## Troubleshooting
 
@@ -214,6 +218,7 @@ See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md). In short: a link is bearer val
 | `Gas price ... is below configured minimum` | Send legacy transactions with the node's gas price; ethers' EIP-1559 estimate can fall below Hedera's minimum. |
 | Claim returns `LinkNotOpen` or `LinkExpired` | The link was already claimed or cancelled, or it passed its expiry. |
 | Claim returns `Relayer is not configured` | Set `RELAYER_PRIVATE_KEY` in `packages/nextjs/.env.local` and restart. |
+| A wallet app says "no account found" for a generated key | The account has not signed a transaction yet, so no public key is on record. The claim page activates it automatically; if that step failed, press Try again on the success screen. |
 | Form shows no balance | Associate the account with SAUCE (step 4) and make sure it holds some. |
 | Reads look stale after a transaction | Hashio can serve state a few seconds behind. Wait and refresh. |
 | `forge script` runs out of gas in simulation | `yarn foundry:deploy` already passes `--gas-limit 14000000` on Hedera networks. If you run `forge script` yourself, add it: a two-contract script is simulated in one call. |
@@ -225,7 +230,7 @@ yarn foundry:test      # 38 tests: accounting, attacks, expiry/refund, fuzz, sta
 yarn foundry:lint      # forge fmt --check and prettier on scripts
 yarn next:lint
 yarn next:check-types
-yarn next:test         # 19 tests: claim URLs, EIP-712 signatures bound to recipient/chain/contract, formatting
+yarn next:test         # 31 tests: claim URLs, EIP-712 signatures bound to recipient/chain/contract, activation rules, wallet errors
 yarn next:build
 yarn foundry:demo      # live testnet proof
 ```

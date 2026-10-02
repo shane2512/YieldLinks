@@ -37,6 +37,19 @@ Do not rely on either. Keep a small HBAR reserve on the source (the deployer can
 
 **Measured fees** (testnet, about $0.105 per HBAR, 2 Oct 2026): claim 1.28 HBAR, create 0.76 HBAR, cancel 0.71 HBAR.
 
+## Hollow accounts and wallet apps
+
+An address that has only ever *received* something becomes a **hollow account**: it exists, it can hold HBAR and tokens, but the mirror node shows `key: null`. Its public key is recorded only after it signs a transaction. Verified on testnet (account `0.0.10828572`):
+
+| State | `GET /accounts/{evmAddress}` | `GET /accounts?account.publickey={compressed key}` |
+| --- | --- | --- |
+| Funded, never signed | `key: null` | **no account found** |
+| After one signed 0-value self-transaction | `key: { _type: ECDSA_SECP256K1, ... }` | account found |
+
+Wallet apps such as HashPack look accounts up by public key, so importing the private key of a hollow account reports "no account found". Activating the account (fund it a little, then sign one transaction with its key) fixes that. The signing transaction costs about 0.017 HBAR and needs at least a few hundredths of an HBAR in the account, which is why `/api/activate` sends 0.1 HBAR first. The compressed public key for the lookup is 33 bytes (`ethers.utils.SigningKey(key).compressedPublicKey`).
+
+Two related gotchas: funding an address from a plain transfer needs more gas than 21,000 because it creates the account (the funding call with a 100,000 gas limit failed; 1,000,000 worked), and mirror-node log searches by topic require a bounded `timestamp=gte:..&timestamp=lte:..` range of at most about 7 days or they return an error.
+
 ## SaucerSwap
 
 | Thing | Value |

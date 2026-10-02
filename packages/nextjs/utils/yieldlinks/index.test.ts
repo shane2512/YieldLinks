@@ -1,6 +1,7 @@
 import {
   buildClaimUrl,
   claimTypedData,
+  describeWalletError,
   formatToken,
   hashscanUrl,
   newKeypair,
@@ -110,5 +111,40 @@ describe("formatting", () => {
   it("links to the right HashScan network", () => {
     expect(hashscanUrl(296, "account/0.0.1")).toBe("https://hashscan.io/testnet/account/0.0.1");
     expect(hashscanUrl(295, "account/0.0.1")).toBe("https://hashscan.io/mainnet/account/0.0.1");
+  });
+});
+
+describe("describeWalletError", () => {
+  it("explains an unauthorized account, the wallet error users actually hit", () => {
+    const raw = Object.assign(
+      new Error(
+        "The requested method and/or account has not been authorized by the user. Request Arguments: from: 0xD8b1",
+      ),
+      { code: 4100 },
+    );
+    expect(describeWalletError(raw)).toMatch(/disconnect this site, connect again/);
+  });
+
+  it("finds the code on a nested cause, as viem wraps wallet errors", () => {
+    const wrapped = Object.assign(new Error("wrapper"), { cause: Object.assign(new Error("inner"), { code: 4001 }) });
+    expect(describeWalletError(wrapped)).toBe("You cancelled the request in your wallet.");
+  });
+
+  it.each([
+    ["User rejected the request.", /cancelled/],
+    [
+      "The current chain of the wallet (id: 295) does not match the target chain for the transaction (id: 296)",
+      /Switch your wallet/,
+    ],
+    ["INSUFFICIENT_PAYER_BALANCE", /enough HBAR/],
+  ])("maps %s", (message, expected) => {
+    expect(describeWalletError(new Error(message))).toMatch(expected);
+  });
+
+  it("falls back to a short message and never throws on odd input", () => {
+    expect(describeWalletError(new Error("boom"))).toBe("boom");
+    expect(describeWalletError("a string")).toBe("Something went wrong. Please try again.");
+    expect(describeWalletError(undefined)).toBe("Something went wrong. Please try again.");
+    expect(describeWalletError(new Error("x".repeat(500))).length).toBeLessThanOrEqual(200);
   });
 });

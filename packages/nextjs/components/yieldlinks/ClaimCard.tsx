@@ -3,15 +3,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { Address, Hex, isAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { ArrowDownTrayIcon, CheckIcon, ClipboardDocumentIcon } from "@heroicons/react/24/outline";
+import { useAccount } from "wagmi";
+import { ArrowDownTrayIcon, ClipboardDocumentIcon } from "@heroicons/react/24/outline";
+import { RainbowKitCustomConnectButton } from "~~/components/scaffold-hbar";
+import { ClaimSuccess } from "~~/components/yieldlinks/ClaimSuccess";
 import { GrowingAmount } from "~~/components/yieldlinks/GrowingAmount";
 import { useDeployedContractInfo, useScaffoldReadContract, useTargetNetwork } from "~~/hooks/scaffold-hbar";
-import { LINK_STATUS, formatToken, hashscanUrl, newKeypair, parseClaimHash, signClaim } from "~~/utils/yieldlinks";
+import { LINK_STATUS, formatToken, newKeypair, parseClaimHash, signClaim } from "~~/utils/yieldlinks";
 
 type Wallet = { address: Address; privateKey: Hex };
-type Claimed = { hash: string; recipient: Address };
+type Claimed = { hash: string; recipient: Address; generated?: Wallet };
+type Mode = "new" | "paste" | "wallet";
 
 const REFRESH_MS = 15_000;
+
+// The relayer answers with the contract's error names; say what they mean.
+const RELAYER_ERRORS: Record<string, string> = {
+  LinkNotOpen: "This gift was already claimed or taken back by the sender.",
+  LinkExpired: "This link has expired. The sender can take the gift back.",
+  InvalidSignature: "This link could not be verified. Check that the whole link was copied.",
+};
 
 const formatTimeLeft = (seconds: number) => {
   if (seconds <= 0) return "expired";
@@ -26,7 +37,8 @@ export const ClaimCard = () => {
   const [secret, setSecret] = useState<Hex | null | undefined>(undefined);
   const [wrongNetwork, setWrongNetwork] = useState(false);
 
-  const [mode, setMode] = useState<"new" | "paste">("new");
+  const { address: connectedWallet } = useAccount();
+  const [mode, setMode] = useState<Mode>("new");
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [saved, setSaved] = useState(false);
   const [pasted, setPasted] = useState("");
@@ -36,9 +48,22 @@ export const ClaimCard = () => {
   const [nowSeconds, setNowSeconds] = useState(() => Math.floor(Date.now() / 1000));
 
   useEffect(() => {
-    const parsed = parseClaimHash(window.location.hash);
-    setSecret(parsed?.privateKey ?? null);
-    setWrongNetwork(!!parsed?.chainId && parsed.chainId !== targetNetwork.id);
+    const read = () => {
+      const parsed = parseClaimHash(window.location.hash);
+      setSecret(parsed?.privateKey ?? null);
+      setWrongNetwork(!!parsed?.chainId && parsed.chainId !== targetNetwork.id);
+    };
+    read();
+
+    // Pasting another gift link into this tab changes only the fragment, which does not reload the page.
+    const onHashChange = () => {
+      read();
+      setError(null);
+      // Never drop a just-claimed wallet: its private key may be the only copy.
+      setClaimed(current => (current?.generated ? current : null));
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
   }, [targetNetwork.id]);
 
   useEffect(() => {
@@ -62,12 +87,19 @@ export const ClaimCard = () => {
     query: { enabled: !!linkKey, refetchInterval: REFRESH_MS },
   });
 
-  const recipient: Address | null = mode === "new" ? (wallet?.address ?? null) : isAddress(pasted) ? pasted : null;
+  const recipient: Address | null =
+    mode === "new"
+      ? (wallet?.address ?? null)
+      : mode === "wallet"
+        ? (connectedWallet ?? null)
+        : isAddress(pasted)
+          ? pasted
+          : null;
   const status = link ? LINK_STATUS[link[2]] : undefined;
   const expiry = link ? Number(link[1]) : 0;
   const createdAt = link ? Number(link[5]) : 0;
   const expired = !!link && nowSeconds >= expiry;
-  const canClaim = status === "Open" && !expired && !!recipient && (mode === "paste" || saved) && !busy && !!contract;
+  const canClaim = status === "Open" && !expired && !!recipient && (mode !== "new" || saved) && !busy && !!contract;
 
   const createWallet = () => {
     setWallet(newKeypair());
@@ -98,8 +130,8 @@ export const ClaimCard = () => {
         body: JSON.stringify({ chainId: targetNetwork.id, linkKey, recipient, signature }),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "Claim failed");
-      setClaimed({ hash: body.hash, recipient });
+      if (!res.ok) throw new Error(RELAYER_ERRORS[body.error] ?? body.error ?? "Claim failed");
+      setClaimed({ hash: body.hash, recipient, generated: mode === "new" ? (wallet ?? undefined) : undefined });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Claim failed");
     } finally {
@@ -128,36 +160,7 @@ export const ClaimCard = () => {
   if (!link || claimable === undefined) return <span className="loading loading-dots loading-lg self-center" />;
 
   if (claimed) {
-    return (
-      <div className="flex flex-col items-center gap-4 text-center">
-        <div className="badge badge-success badge-lg gap-1">
-          <CheckIcon className="h-4 w-4" /> Claimed
-        </div>
-        <p className="text-lg font-medium">The gift is in your Hedera account.</p>
-        <p className="text-sm text-base-content/70 max-w-md break-all">
-          Delivered to <span className="font-mono">{claimed.recipient}</span>. If that address had no account yet, the
-          claim created one and associated the token for you.
-        </p>
-        <div className="flex gap-4 text-sm">
-          <a
-            className="link"
-            href={hashscanUrl(targetNetwork.id, `transaction/${claimed.hash}`)}
-            target="_blank"
-            rel="noreferrer"
-          >
-            View transaction
-          </a>
-          <a
-            className="link"
-            href={hashscanUrl(targetNetwork.id, `account/${claimed.recipient}`)}
-            target="_blank"
-            rel="noreferrer"
-          >
-            View account
-          </a>
-        </div>
-      </div>
-    );
+    return <ClaimSuccess hash={claimed.hash} recipient={claimed.recipient} generated={claimed.generated} />;
   }
 
   if (status !== "Open") {
@@ -195,17 +198,23 @@ export const ClaimCard = () => {
         <div className="alert alert-warning">This link has expired. The sender can take the gift back.</div>
       ) : (
         <>
-          <div role="tablist" className="tabs tabs-box self-center">
-            <button role="tab" className={`tab ${mode === "new" ? "tab-active" : ""}`} onClick={() => setMode("new")}>
-              Create a wallet for me
-            </button>
-            <button
-              role="tab"
-              className={`tab ${mode === "paste" ? "tab-active" : ""}`}
-              onClick={() => setMode("paste")}
-            >
-              I have an address
-            </button>
+          <div role="tablist" className="tabs tabs-box self-center flex-wrap justify-center">
+            {(
+              [
+                ["new", "New wallet"],
+                ["wallet", "My wallet"],
+                ["paste", "Address"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                role="tab"
+                className={`tab ${mode === value ? "tab-active" : ""}`}
+                onClick={() => setMode(value)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
           {mode === "new" ? (
@@ -245,6 +254,17 @@ export const ClaimCard = () => {
                   </label>
                 </div>
               )}
+            </div>
+          ) : mode === "wallet" ? (
+            <div className="flex flex-col items-center gap-3 text-center">
+              {connectedWallet ? (
+                <p className="text-sm text-base-content/70 break-all">
+                  The gift will go to <span className="font-mono">{connectedWallet}</span>.
+                </p>
+              ) : (
+                <p className="text-sm text-base-content/70">Connect the wallet you want the gift sent to.</p>
+              )}
+              <RainbowKitCustomConnectButton />
             </div>
           ) : (
             <label className="flex flex-col gap-2">

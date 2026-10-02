@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { erc20Abi, parseUnits } from "viem";
-import { useAccount, usePublicClient, useReadContract, useWriteContract } from "wagmi";
+import { useAccount, usePublicClient, useReadContract, useSwitchChain, useWriteContract } from "wagmi";
 import { CheckIcon, ClipboardDocumentIcon } from "@heroicons/react/24/outline";
 import { RainbowKitCustomConnectButton } from "~~/components/scaffold-hbar";
 import {
@@ -18,6 +18,7 @@ import {
   TOKEN_DECIMALS,
   YIELD_POLICIES,
   buildClaimUrl,
+  describeWalletError,
   formatToken,
   hashscanUrl,
   newKeypair,
@@ -30,7 +31,8 @@ const CREATE_GAS_LIMIT = 2_000_000n;
 type Created = { url: string; txHash: string };
 
 export const CreateLinkForm = () => {
-  const { address } = useAccount();
+  const { address, chain } = useAccount();
+  const { switchChainAsync, isPending: switching } = useSwitchChain();
   const { targetNetwork } = useTargetNetwork();
   const publicClient = usePublicClient({ chainId: targetNetwork.id });
 
@@ -69,7 +71,9 @@ export const CreateLinkForm = () => {
     parsed = null;
   }
   const insufficient = parsed !== null && balance !== undefined && parsed > balance;
-  const canSubmit = !!address && !!sauce && !!source && !!parsed && parsed > 0n && !insufficient && !busy;
+  const wrongNetwork = !!address && !!chain && chain.id !== targetNetwork.id;
+  const canSubmit =
+    !!address && !!sauce && !!source && !!parsed && parsed > 0n && !insufficient && !busy && !wrongNetwork;
 
   const submit = async () => {
     if (!canSubmit || !parsed || !sauce || !source || !publicClient) return;
@@ -81,6 +85,9 @@ export const CreateLinkForm = () => {
           abi: erc20Abi,
           functionName: "approve",
           args: [source.address, parsed],
+          // Pin the account and network so a mismatch fails with a clear message, not a wallet-level error.
+          account: address,
+          chainId: targetNetwork.id,
         });
         await publicClient.waitForTransactionReceipt({ hash: approveHash });
         await refetchAllowance();
@@ -102,7 +109,7 @@ export const CreateLinkForm = () => {
       saveStoredLink({ linkKey: keypair.address, url, createdAt: Date.now() });
       setCreated({ url, txHash });
     } catch (error) {
-      notification.error(error instanceof Error ? error.message.slice(0, 200) : "Could not create the link");
+      notification.error(describeWalletError(error));
     } finally {
       setBusy(null);
     }
@@ -211,6 +218,23 @@ export const CreateLinkForm = () => {
           ))}
         </div>
       </div>
+
+      {wrongNetwork && (
+        <div className="alert alert-warning flex-col sm:flex-row text-sm">
+          <span>Your wallet is on a different network. Switch to {targetNetwork.name} to continue.</span>
+          <button
+            className="btn btn-sm"
+            disabled={switching}
+            onClick={() =>
+              void switchChainAsync({ chainId: targetNetwork.id }).catch(e =>
+                notification.error(describeWalletError(e)),
+              )
+            }
+          >
+            {switching ? <span className="loading loading-spinner loading-xs" /> : "Switch network"}
+          </button>
+        </div>
+      )}
 
       {address ? (
         <button className="btn btn-primary btn-lg" disabled={!canSubmit} onClick={submit}>

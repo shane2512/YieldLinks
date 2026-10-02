@@ -60,6 +60,34 @@ export const formatToken = (value: bigint, maxDecimals = TOKEN_DECIMALS) => {
   return trimmed ? `${Number(whole).toLocaleString()}.${trimmed}` : Number(whole).toLocaleString();
 };
 
+type WalletError = { code?: number; shortMessage?: string; message?: string; cause?: unknown };
+
+/** Turns a raw wallet or RPC error into something a person can act on. */
+export const describeWalletError = (error: unknown): string => {
+  const chain: WalletError[] = [];
+  for (let e = error, i = 0; e && typeof e === "object" && i < 6; i++) {
+    chain.push(e as WalletError);
+    e = (e as WalletError).cause;
+  }
+  const text = chain.map(e => `${e.shortMessage ?? ""} ${e.message ?? ""}`).join(" ");
+  const code = chain.find(e => typeof e.code === "number")?.code;
+
+  if (code === 4001 || /user rejected|user denied|rejected the request/i.test(text)) {
+    return "You cancelled the request in your wallet.";
+  }
+  if (code === 4100 || /not been authorized/i.test(text)) {
+    return "Your wallet has not authorized this site for the selected account. In your wallet, disconnect this site, connect again, and pick the account you want to use.";
+  }
+  if (/chain mismatch|does not match the target chain/i.test(text)) {
+    return "Switch your wallet to Hedera Testnet and try again.";
+  }
+  if (/insufficient (funds|balance)|INSUFFICIENT_PAYER_BALANCE/i.test(text)) {
+    return "This account does not have enough HBAR to pay the network fee.";
+  }
+  const first = chain[0];
+  return (first?.shortMessage ?? first?.message ?? "Something went wrong. Please try again.").slice(0, 200);
+};
+
 export const hashscanUrl = (chainId: number, path: string) =>
   `https://hashscan.io/${chainId === 295 ? "mainnet" : "testnet"}/${path}`;
 

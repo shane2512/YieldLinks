@@ -6,7 +6,7 @@ import { useAccount, useReadContracts } from "wagmi";
 import { CheckIcon, ClipboardDocumentIcon } from "@heroicons/react/24/outline";
 import { useDeployedContractInfo, useScaffoldWriteContract, useTargetNetwork } from "~~/hooks/scaffold-hbar";
 import { notification } from "~~/utils/scaffold-hbar";
-import { LINK_STATUS, StoredLink, formatToken, loadStoredLinks } from "~~/utils/yieldlinks";
+import { LINK_STATUS, StoredLink, describeWalletError, formatToken, loadStoredLinks } from "~~/utils/yieldlinks";
 
 const REFUND_GAS_LIMIT = 2_000_000n;
 
@@ -65,7 +65,7 @@ export const MyLinks = () => {
       await refetch();
       setTimeout(() => void refetch(), 5000);
     } catch (error) {
-      notification.error(error instanceof Error ? error.message.slice(0, 160) : "Refund failed");
+      notification.error(describeWalletError(error));
     } finally {
       setBusy(null);
     }

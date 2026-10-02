@@ -36,11 +36,19 @@ A gift link is **bearer value**. The private key in the URL fragment is the only
 | 14 | **Reentrancy** | Callback during a token transfer | `nonReentrant` on every state-changing entry point; state is settled before payout | `YieldLinks.sol` |
 | 15 | **Payout fails for a new recipient** | A claim reverts and the link looks stuck | HIP-904 delivers to unassociated and non-existent accounts; failures surface the Hedera response code, and the sender can still cancel or wait for expiry | `test_claim_revertsWithTheHederaCodeWhenTheAirdropIsRejected` |
 
+### Added with wallet activation
+
+| # | Threat | Impact | What stops it | Evidence |
+| --- | --- | --- | --- | --- |
+| 16 | **Using `/api/activate` as an HBAR faucet** | Anyone requests 0.1 HBAR for fresh addresses and drains the relayer | It funds only addresses that a `YieldLinks` claim paid (checked on the mirror node by the `LinkClaimed` event), only while the account is hollow, and only below a small balance. Once funded or activated the address is ineligible, and requests are rate limited per IP. | `planActivation` tests in `utils/yieldlinks/activation.test.ts` |
+| 17 | **A mirror-node outage looks like "not eligible"** | Activation hangs or is wrongly refused | A failed lookup returns an error (502) instead of being read as "no claim", and the page offers Try again | `app/api/activate/route.ts` |
+
 ## Known gaps
 
 - **No audit**, and the fuzz and unit tests cover the contracts, not the relayer route or the React code.
 - **The pool can lose value.** `SauceStakingSource` is only as safe as SaucerSwap's Infinity Pool. If the pool were drained, links would be worth less than their principal and claims would pay what is there.
 - **Yield tokens are volatile.** SAUCE moves against the dollar; a gift's fiat value is not protected.
+- **Activation costs the relayer HBAR.** Every claim to a generated wallet adds about 0.1 HBAR plus fees, whether or not the recipient ever imports the key. Someone could create many cheap links and claim each to a fresh generated wallet to drain the relayer slowly; the sender pays for each link, but the relayer's per-claim cost is higher than the sender's. Production needs a funding budget and shared rate limits.
 - **The relayer is a single process.** Its rate limit is in memory and resets on restart, and sends are serialized through one nonce. Production needs a queue and shared limits.
 - **In-browser wallet generation** shows a private key to the user once. A recipient who loses it loses the gift. Use passkeys or an embedded wallet in production.
 - **HBAR sent to the source** is a fee reserve. Only the deployer can withdraw it (`withdrawHbar`), and a lost deployer key strands it. It cannot reach escrowed tokens either way.

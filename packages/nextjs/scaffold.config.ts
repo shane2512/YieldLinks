@@ -31,7 +31,8 @@ const scaffoldConfig = {
 
   pollingInterval: 10000,
 
-  enableBurnerWallet: true,
+  // The burner wallet is a development convenience; production builds should not pre-connect a throwaway wallet.
+  enableBurnerWallet: process.env.NODE_ENV === "development",
 
   rpcOverrides: {
     [chains.hedera.id]: process.env.NEXT_PUBLIC_HEDERA_MAINNET_RPC_URL || "https://mainnet.hashio.io/api",
