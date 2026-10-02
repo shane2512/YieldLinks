@@ -7,10 +7,7 @@ import {
   newKeypair,
   parseClaimHash,
   signClaim,
-  toDerPrivateKey,
-  toRawHexKey,
 } from "./index";
-import { PrivateKey } from "@hiero-ledger/sdk";
 import { recoverTypedDataAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { describe, expect, it } from "vitest";
@@ -149,31 +146,5 @@ describe("describeWalletError", () => {
     expect(describeWalletError("a string")).toBe("Something went wrong. Please try again.");
     expect(describeWalletError(undefined)).toBe("Something went wrong. Please try again.");
     expect(describeWalletError(new Error("x".repeat(500))).length).toBeLessThanOrEqual(200);
-  });
-});
-
-describe("importing a generated key into a Hedera wallet", () => {
-  const { privateKey } = newKeypair();
-
-  it("DER encoding matches what the Hedera SDK produces for an ECDSA key", () => {
-    const sdk = PrivateKey.fromStringECDSA(toRawHexKey(privateKey));
-    expect(toDerPrivateKey(privateKey)).toBe(sdk.toStringDer());
-  });
-
-  it("a wallet that reads the DER key gets the same public key the account was activated with", () => {
-    const fromDer = PrivateKey.fromStringDer(toDerPrivateKey(privateKey));
-    const expected = PrivateKey.fromStringECDSA(toRawHexKey(privateKey));
-    expect(fromDer.publicKey.toStringRaw()).toBe(expected.publicKey.toStringRaw());
-  });
-
-  it("documents the pitfall: the same raw bytes read as ED25519 give a different public key", () => {
-    const raw = toRawHexKey(privateKey);
-    expect(PrivateKey.fromStringED25519(raw).publicKey.toStringRaw()).not.toBe(
-      PrivateKey.fromStringECDSA(raw).publicKey.toStringRaw(),
-    );
-  });
-
-  it("raw hex drops the 0x prefix and is 64 characters", () => {
-    expect(toRawHexKey(privateKey)).toMatch(/^[0-9a-f]{64}$/);
   });
 });

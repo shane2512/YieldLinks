@@ -36,19 +36,20 @@ A gift link is **bearer value**. The private key in the URL fragment is the only
 | 14 | **Reentrancy** | Callback during a token transfer | `nonReentrant` on every state-changing entry point; state is settled before payout | `YieldLinks.sol` |
 | 15 | **Payout fails for a new recipient** | A claim reverts and the link looks stuck | HIP-904 delivers to unassociated and non-existent accounts; failures surface the Hedera response code, and the sender can still cancel or wait for expiry | `test_claim_revertsWithTheHederaCodeWhenTheAirdropIsRejected` |
 
-### Added with wallet activation
+### Added with generated wallets
 
 | # | Threat | Impact | What stops it | Evidence |
 | --- | --- | --- | --- | --- |
-| 16 | **Using `/api/activate` as an HBAR faucet** | Anyone requests 0.1 HBAR for fresh addresses and drains the relayer | It funds only addresses that a `YieldLinks` claim paid (checked on the mirror node by the `LinkClaimed` event), only while the account is hollow, and only below a small balance. Once funded or activated the address is ineligible, and requests are rate limited per IP. | `planActivation` tests in `utils/yieldlinks/activation.test.ts` |
-| 17 | **A mirror-node outage looks like "not eligible"** | Activation hangs or is wrongly refused | A failed lookup returns an error (502) instead of being read as "no claim", and the page offers Try again | `app/api/activate/route.ts` |
+| 16 | **Using `/api/create-account` to create accounts in bulk** | Anyone makes the relayer pay about 0.58 HBAR per account | The request must carry a signature by an **open link's key** over the new public key (EIP-712, bound to chain, contract and public key), and the link must be open and unexpired on-chain. One link gets one account: retries return the same one. Requests are rate limited per IP. | `account-creation proof` tests in `utils/yieldlinks/ed25519.test.ts` |
+| 17 | **A signed account request replayed for a different key** | An attacker reuses an observed signature to create an account they control | The signature covers the public key, so a different key recovers to a different signer | `is bound to the public key` test |
+| 18 | **The claim races the new account's visibility** | A claim reverts with `INVALID_ALIAS_KEY` | The route waits for the account to be visible and retries that one error | `docs/HEDERA_NOTES.md` |
 
 ## Known gaps
 
 - **No audit**, and the fuzz and unit tests cover the contracts, not the relayer route or the React code.
 - **The pool can lose value.** `SauceStakingSource` is only as safe as SaucerSwap's Infinity Pool. If the pool were drained, links would be worth less than their principal and claims would pay what is there.
 - **Yield tokens are volatile.** SAUCE moves against the dollar; a gift's fiat value is not protected.
-- **Activation costs the relayer HBAR.** Every claim to a generated wallet adds about 0.1 HBAR plus fees, whether or not the recipient ever imports the key. Someone could create many cheap links and claim each to a fresh generated wallet to drain the relayer slowly; the sender pays for each link, but the relayer's per-claim cost is higher than the sender's. Production needs a funding budget and shared rate limits.
+- **Creating accounts costs the relayer HBAR.** Each claim to a generated wallet costs about 0.58 HBAR for the account on top of the claim. A sender can create many cheap links and claim each to a fresh generated wallet, so the relayer's cost per claim exceeds the sender's. The one-account-per-link record is in memory and resets on restart. Production needs a funding budget, shared rate limits and persistent state.
 - **The relayer is a single process.** Its rate limit is in memory and resets on restart, and sends are serialized through one nonce. Production needs a queue and shared limits.
 - **In-browser wallet generation** shows a private key to the user once. A recipient who loses it loses the gift. Use passkeys or an embedded wallet in production.
 - **HBAR sent to the source** is a fee reserve. Only the deployer can withdraw it (`withdrawHbar`), and a lost deployer key strands it. It cannot reach escrowed tokens either way.

@@ -9,18 +9,11 @@ import { RainbowKitCustomConnectButton } from "~~/components/scaffold-hbar";
 import { ClaimSuccess } from "~~/components/yieldlinks/ClaimSuccess";
 import { GrowingAmount } from "~~/components/yieldlinks/GrowingAmount";
 import { useDeployedContractInfo, useScaffoldReadContract, useTargetNetwork } from "~~/hooks/scaffold-hbar";
-import {
-  LINK_STATUS,
-  formatToken,
-  newKeypair,
-  parseClaimHash,
-  signClaim,
-  toDerPrivateKey,
-  toRawHexKey,
-} from "~~/utils/yieldlinks";
+import { LINK_STATUS, formatToken, parseClaimHash, signClaim } from "~~/utils/yieldlinks";
+import { GeneratedWallet, newEd25519Wallet, signCreateAccount } from "~~/utils/yieldlinks/ed25519";
 
-type Wallet = { address: Address; privateKey: Hex };
-type Claimed = { hash: string; recipient: Address; generated?: Wallet };
+type NewAccount = GeneratedWallet & { accountId: string };
+type Claimed = { hash: string; recipient: Address; generated?: NewAccount };
 type Mode = "new" | "paste" | "wallet";
 
 const REFRESH_MS = 15_000;
@@ -47,7 +40,8 @@ export const ClaimCard = () => {
 
   const { address: connectedWallet } = useAccount();
   const [mode, setMode] = useState<Mode>("new");
-  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [wallet, setWallet] = useState<GeneratedWallet | null>(null);
+  const [progress, setProgress] = useState("Claiming…");
   const [saved, setSaved] = useState(false);
   const [pasted, setPasted] = useState("");
   const [busy, setBusy] = useState(false);
@@ -95,32 +89,28 @@ export const ClaimCard = () => {
     query: { enabled: !!linkKey, refetchInterval: REFRESH_MS },
   });
 
+  // A generated wallet has no address yet: its account is created during the claim.
   const recipient: Address | null =
-    mode === "new"
-      ? (wallet?.address ?? null)
-      : mode === "wallet"
-        ? (connectedWallet ?? null)
-        : isAddress(pasted)
-          ? pasted
-          : null;
+    mode === "wallet" ? (connectedWallet ?? null) : mode === "paste" && isAddress(pasted) ? pasted : null;
   const status = link ? LINK_STATUS[link[2]] : undefined;
   const expiry = link ? Number(link[1]) : 0;
   const createdAt = link ? Number(link[5]) : 0;
   const expired = !!link && nowSeconds >= expiry;
-  const canClaim = status === "Open" && !expired && !!recipient && (mode !== "new" || saved) && !busy && !!contract;
+  const hasDestination = mode === "new" ? !!wallet && saved : !!recipient;
+  const canClaim = status === "Open" && !expired && hasDestination && !busy && !!contract;
 
   const createWallet = () => {
-    setWallet(newKeypair());
+    setWallet(newEd25519Wallet());
     setSaved(false);
   };
 
   const downloadKey = () => {
     if (!wallet) return;
     const text = [
-      "Hedera wallet created by YieldLinks (ECDSA key)",
-      `Address: ${wallet.address}`,
-      `Private key, 64 characters (HashPack and MetaMask): ${toRawHexKey(wallet.privateKey)}`,
-      `Private key, DER (Hedera SDK and CLI tools only): ${toDerPrivateKey(wallet.privateKey)}`,
+      "Hedera wallet created by YieldLinks (ED25519 key)",
+      `Private key, 64 characters (HashPack and Hedera tools): ${wallet.privateKey}`,
+      `Private key, DER format (Hedera SDK and CLI tools): ${wallet.privateKeyDer}`,
+      `Public key: ${wallet.publicKey}`,
       "",
       "Anyone with this key controls the funds. Store it somewhere safe.",
       "",
@@ -134,20 +124,49 @@ export const ClaimCard = () => {
     setSaved(true);
   };
 
+  const postJson = async (url: string, payload: unknown) => {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(RELAYER_ERRORS[body.error] ?? body.error ?? "Request failed");
+    return body;
+  };
+
   const claim = async () => {
-    if (!canClaim || !secret || !contract || !recipient) return;
+    if (!canClaim || !secret || !contract) return;
     setBusy(true);
     setError(null);
     try {
-      const signature = await signClaim(secret, contract.address, targetNetwork.id, recipient);
-      const res = await fetch("/api/claim", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chainId: targetNetwork.id, linkKey, recipient, signature }),
+      let destination = recipient;
+      let generated: NewAccount | undefined;
+
+      if (mode === "new" && wallet) {
+        // Create the ED25519 account first, proving we hold the link, then pay it by its account address.
+        setProgress("Creating your account…");
+        const proof = await signCreateAccount(secret, contract.address, targetNetwork.id, wallet.publicKey);
+        const created = await postJson("/api/create-account", {
+          chainId: targetNetwork.id,
+          linkKey,
+          publicKey: wallet.publicKey,
+          signature: proof,
+        });
+        destination = created.evmAddress as Address;
+        generated = { ...wallet, accountId: created.accountId };
+      }
+      if (!destination) return;
+
+      setProgress("Claiming…");
+      const signature = await signClaim(secret, contract.address, targetNetwork.id, destination);
+      const body = await postJson("/api/claim", {
+        chainId: targetNetwork.id,
+        linkKey,
+        recipient: destination,
+        signature,
       });
-      const body = await res.json();
-      if (!res.ok) throw new Error(RELAYER_ERRORS[body.error] ?? body.error ?? "Claim failed");
-      setClaimed({ hash: body.hash, recipient, generated: mode === "new" ? (wallet ?? undefined) : undefined });
+      setClaimed({ hash: body.hash, recipient: destination, generated });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Claim failed");
     } finally {
@@ -241,9 +260,10 @@ export const ClaimCard = () => {
                 </button>
               ) : (
                 <div className="rounded-xl border border-base-300 p-4 flex flex-col gap-3">
-                  <div className="text-xs text-base-content/60">Your new address</div>
-                  <div className="font-mono text-xs break-all">{wallet.address}</div>
-                  <div className="text-xs text-base-content/60">Private key. This is the only copy, save it.</div>
+                  <div className="text-xs text-base-content/60">
+                    Your private key (64 characters). This is the only copy, save it. Your Hedera account is created
+                    when you claim.
+                  </div>
                   <div className="join">
                     <input readOnly value={wallet.privateKey} className="input join-item w-full font-mono text-xs" />
                     <button
@@ -268,6 +288,10 @@ export const ClaimCard = () => {
                     />
                     <span className="text-sm">I saved my private key somewhere safe</span>
                   </label>
+                  <p className="text-xs text-base-content/50">
+                    Works in HashPack, Blade and Hedera tools. It is not an EVM key, so MetaMask cannot use it: choose
+                    My wallet for that.
+                  </p>
                 </div>
               )}
             </div>
@@ -302,7 +326,7 @@ export const ClaimCard = () => {
           <button className="btn btn-primary btn-lg" disabled={!canClaim} onClick={claim}>
             {busy ? (
               <>
-                <span className="loading loading-spinner" /> Claiming…
+                <span className="loading loading-spinner" /> {progress}
               </>
             ) : (
               "Claim gift"
@@ -310,7 +334,7 @@ export const ClaimCard = () => {
           </button>
           <p className="text-xs text-center text-base-content/50">
             {busy
-              ? "Hedera is confirming your claim. This usually takes 10 to 20 seconds."
+              ? "Hedera is confirming each step. This usually takes 10 to 30 seconds."
               : "No wallet or HBAR needed. A relayer pays the network fee."}
           </p>
         </>

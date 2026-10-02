@@ -51,18 +51,28 @@ export async function POST(request: Request) {
   const contract = deployedContracts[chainId as keyof typeof deployedContracts].YieldLinks;
   const args = [linkKey, recipient, signature] as const;
 
-  try {
-    await clients.publicClient.simulateContract({
-      address: contract.address,
-      abi: contract.abi,
-      functionName: "claim",
-      args,
-      account: clients.account,
-      gas: CLAIM_GAS_LIMIT,
-    });
-  } catch (error) {
-    return NextResponse.json({ error: revertName(error) }, { status: 400 });
+  // A recipient account created seconds ago can be invisible to the simulating node for a moment, which Hedera reports
+  // as INVALID_ALIAS_KEY. That one error is worth a couple of short retries; every other revert is final.
+  let simulationError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await clients.publicClient.simulateContract({
+        address: contract.address,
+        abi: contract.abi,
+        functionName: "claim",
+        args,
+        account: clients.account,
+        gas: CLAIM_GAS_LIMIT,
+      });
+      simulationError = undefined;
+      break;
+    } catch (error) {
+      simulationError = error;
+      if (!revertName(error).includes("INVALID_ALIAS_KEY")) break;
+      await new Promise(resolve => setTimeout(resolve, 3_000));
+    }
   }
+  if (simulationError) return NextResponse.json({ error: revertName(simulationError) }, { status: 400 });
 
   try {
     const result = await enqueue(async () => {

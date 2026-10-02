@@ -126,7 +126,7 @@ sequenceDiagram
 
 **Who keeps the yield.** Chosen per link: `Recipient` (the gift grows for them), `Sender` (recipient gets the principal) or `Charity` (the contract's `CHARITY` address).
 
-**Generated wallets and wallet apps.** The claim page offers three ways to receive: generate a wallet in the browser, connect an existing wallet, or paste an address. A generated wallet is a brand-new Hedera account, and Hedera records an account's public key only when it signs its first transaction. Wallet apps such as HashPack find accounts *by public key*, so importing the key straight after the claim reports "no account found". To avoid that, the claim page **activates** the account: `/api/activate` sends 0.1 HBAR, then the browser signs one tiny transaction with the generated key (about 0.017 HBAR). It only funds addresses that a `YieldLinks` claim paid and whose key is not yet on record, so it cannot be used as a faucet. A claim to a generated wallet therefore costs the relayer about 1.4 HBAR instead of 1.28. After activation the page shows the account ID, the **64-character private key** (what HashPack's import field and MetaMask take) and, for Hedera SDK and CLI tools only, the DER form, plus the import steps.
+**Generated wallets and wallet apps.** The claim page offers three ways to receive: create a wallet in the browser, connect an existing wallet, or paste an address. A created wallet is a real **ED25519 Hedera account**, the type HashPack makes and imports by default. The browser generates the key; the relayer creates the account for its public key (`/api/create-account`, 0.1 HBAR welcome balance, unlimited token auto-association), proving nothing but that the caller holds an open link; then the claim pays that account. Because the account is created with its key, wallet apps can find it by key straight away. The success screen shows the account ID and the private key as the 96-character DER form (`302e…`) and the 64-character form, plus the import steps. An ED25519 account works in HashPack, Blade and Hedera tools but not in MetaMask, which only takes EVM (ECDSA) keys: MetaMask users should choose **My wallet**. Creating the account costs the relayer about 0.58 HBAR (0.48 fee plus the 0.1 HBAR welcome balance) on top of the claim.
 
 ## Project layout
 
@@ -149,10 +149,10 @@ packages/
     app/claim/page.tsx            claim a gift (no wallet needed)
     app/links/page.tsx            your links, cancel and refund
     app/api/claim/route.ts        gas-paying relayer
-    app/api/activate/route.ts     funds a claimed wallet so wallet apps can find it
+    app/api/create-account/route.ts  creates the ED25519 account for a generated wallet
     components/yieldlinks/        create form, claim card and success screen, growing balance, link list
     utils/relayer/                server-only helpers shared by the relayer routes
-    utils/yieldlinks/             key generation, claim URLs, EIP-712 signing, activation rules (unit tested)
+    utils/yieldlinks/             link keys, claim URLs, EIP-712 signing, ED25519 wallets (unit tested)
 docs/
   THREAT_MODEL.md                 what can go wrong and what stops it
   HEDERA_NOTES.md                 platform gotchas found while building this
@@ -208,7 +208,7 @@ See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md). In short: a link is bearer val
 - **No Hedera Schedule Service.** Refunds are permissionless instead of scheduled. HIP-1215 `scheduleCall` has an open bug when booked from a delegatecall frame ([#27263](https://github.com/hiero-ledger/hiero-consensus-node/issues/27263)), a 62-day expiry cap, and self-rescheduling is unproven, so nothing here depends on it.
 - **Who pays the account-creation fee depends on the network version.** On 1 Oct the HIP-904 airdrop appeared as a `TOKENAIRDROP` child record and the sending contract paid 0.48 HBAR; on 2 Oct the account was created inside the claim and the relayer paid the single 1.28 HBAR fee, with the contract untouched. The source accepts an HBAR reserve as a safety margin and the deployer can take it back. Evidence in [docs/HEDERA_NOTES.md](docs/HEDERA_NOTES.md).
 - **The relayer is a single key.** It is rate limited per IP in memory and serialized. For production use a queue, per-user limits and a dedicated funding policy.
-- **In-browser wallets are demo-grade onboarding.** The claim page can generate a key and ask the user to save it. A production app should use passkeys or an embedded wallet. The activation step makes the account findable by public key (verified against the mirror node); the import steps in the UI have not been tested in HashPack itself.
+- **In-browser wallets are demo-grade onboarding.** The claim page generates a key and asks the user to save it. A production app should use passkeys or an embedded wallet. Importing into HashPack has been checked by looking the account up by its key on the mirror node and parsing the key the way a wallet does; it has not been tested inside HashPack from this repository.
 
 ## Troubleshooting
 
@@ -218,7 +218,7 @@ See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md). In short: a link is bearer val
 | `Gas price ... is below configured minimum` | Send legacy transactions with the node's gas price; ethers' EIP-1559 estimate can fall below Hedera's minimum. |
 | Claim returns `LinkNotOpen` or `LinkExpired` | The link was already claimed or cancelled, or it passed its expiry. |
 | Claim returns `Relayer is not configured` | Set `RELAYER_PRIVATE_KEY` in `packages/nextjs/.env.local` and restart. |
-| A wallet app says "no accounts found" for a generated key | Check, in order: the wallet is on the right network (this app's testnet accounts only exist on **Testnet**, so pick it on HashPack's import screen); you pasted the **64-character** key (HashPack's field takes 64 or 96 characters, so the 100-character DER key does not fit); and the key comes from a wallet whose page said "ready to import", because a wallet claimed before activation has no public key on record (press Try again on the success screen). |
+| A wallet app says "no accounts found" for a generated key | Check the wallet is on the right network (this app's testnet accounts only exist on **Testnet**, so pick it on HashPack's import screen) and that you pasted the key shown on the success screen of *that* wallet. Keys from a wallet created before the ED25519 change are ECDSA keys and are not the same thing. |
 | Form shows no balance | Associate the account with SAUCE (step 4) and make sure it holds some. |
 | Reads look stale after a transaction | Hashio can serve state a few seconds behind. Wait and refresh. |
 | `forge script` runs out of gas in simulation | `yarn foundry:deploy` already passes `--gas-limit 14000000` on Hedera networks. If you run `forge script` yourself, add it: a two-contract script is simulated in one call. |
@@ -230,7 +230,7 @@ yarn foundry:test      # 38 tests: accounting, attacks, expiry/refund, fuzz, sta
 yarn foundry:lint      # forge fmt --check and prettier on scripts
 yarn next:lint
 yarn next:check-types
-yarn next:test         # 31 tests: claim URLs, EIP-712 signatures bound to recipient/chain/contract, activation rules, wallet errors
+yarn next:test         # 39 tests: claim URLs, EIP-712 signatures, ED25519 wallets checked against the Hedera SDK, wallet errors
 yarn next:build
 yarn foundry:demo      # live testnet proof
 ```

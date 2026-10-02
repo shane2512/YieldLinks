@@ -23,7 +23,7 @@ yarn foundry:demo                     # live testnet proof: create, claim to a n
 yarn next:dev                         # http://localhost:3000
 yarn next:lint                        # eslint . --max-warnings=0
 yarn next:check-types
-yarn next:test                        # vitest: claim URLs, EIP-712 signing, activation rules, wallet errors
+yarn next:test                        # vitest: claim URLs, EIP-712 signing, ED25519 wallets, wallet errors
 yarn next:build
 ```
 
@@ -37,7 +37,7 @@ If `forge` reports "No tests found" or "No contract bytecode" right after a succ
 - `packages/foundry/contracts/libraries/HtsLib.sol`: HTS association and airdrop; no-ops where `0x167` has no code.
 - `packages/foundry/script/Deploy.s.sol`: picks the source by chain id, binds it, writes `deployments/<chainId>.json`.
 - `packages/foundry/test/`: unit, fuzz, attack and HTS-delivery tests; mocks in `test/mocks/`.
-- `packages/nextjs/app/api/claim/route.ts`: the gas-paying relayer. `app/api/activate/route.ts` funds a claim-generated wallet so wallet apps can find it (rules in `utils/yieldlinks/activation.ts`); `utils/relayer/` holds the shared server helpers.
+- `packages/nextjs/app/api/claim/route.ts`: the gas-paying relayer. `app/api/create-account/route.ts` creates the ED25519 account for a wallet generated on the claim page (the caller must prove it holds an open link); `utils/relayer/` holds the shared server helpers and `utils/yieldlinks/ed25519.ts` the wallet and proof helpers.
 - `packages/nextjs/components/yieldlinks/` and `utils/yieldlinks/`: the product UI and the key/URL/signature helpers.
 - `packages/nextjs/contracts/deployedContracts.ts`: **generated** by the deploy script. Never edit it by hand; run a deploy instead.
 
@@ -49,7 +49,7 @@ If `forge` reports "No tests found" or "No contract bytecode" right after a succ
 4. **Settle before you pay.** `_settle` burns shares and closes the link before any external call.
 5. **No owner, no upgrade path, no keeper.** Refunds are permissionless after expiry. Do not add admin powers over escrow or a dependency on Hedera scheduling (see `docs/HEDERA_NOTES.md`, HSS bug).
 6. **Never hardcode token decimals.** SAUCE is 6, but read it where you can.
-7. **`/api/activate` must never fund an arbitrary address.** It requires a `LinkClaimed` event for the recipient and a hollow account; keep `planActivation` strict and covered by tests.
+7. **`/api/create-account` must never create an account for a caller who does not hold an open link.** Keep the link-key signature check and the open-and-unexpired check, and keep the signature bound to the public key.
 
 ## Secrets and links
 
