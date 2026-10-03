@@ -182,7 +182,11 @@ yarn next:dev        # http://localhost:3000
 
 The frontend already points at the testnet deployment listed above, so it works immediately. To deploy your own, see [Deploy your own](#deploy-your-own).
 
-**4. Get test SAUCE.** The app sends SAUCE, so the sending wallet needs some. With Foundry's `cast` and a funded testnet key:
+**4. Get test SAUCE.** The app sends SAUCE, so the sending wallet needs some.
+
+The easiest way is to swap testnet HBAR for SAUCE on **[SaucerSwap testnet](https://testnet.saucerswap.finance/)**: connect your wallet (HashPack works), make sure it is on **Testnet**, then swap HBAR → SAUCE. If it asks to associate SAUCE with your account, approve it.
+
+Prefer the terminal? With Foundry's `cast` and a funded testnet key:
 
 ```bash
 ME=<your 0x address>; KEY=<your private key>; RPC=https://testnet.hashio.io/api
@@ -328,7 +332,7 @@ See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md). In short: a link is bearer val
 | Claim returns `LinkNotOpen` or `LinkExpired` | The link was already claimed or cancelled, or it passed its expiry. |
 | Claim returns `Relayer is not configured` | Set `RELAYER_PRIVATE_KEY` in `packages/nextjs/.env.local` and restart. |
 | A wallet app says "no accounts found" for a generated key | Check the wallet is on the right network (this app's testnet accounts only exist on **Testnet**, so pick it on HashPack's import screen) and that you pasted the key shown on the success screen of *that* wallet. Keys from a wallet created before the ED25519 change are ECDSA keys and are not the same thing. |
-| Form shows no balance | Associate the account with SAUCE (step 4) and make sure it holds some. |
+| Form shows no balance | The wallet holds no SAUCE. Swap testnet HBAR for SAUCE on [SaucerSwap testnet](https://testnet.saucerswap.finance/), or use the `cast` commands in step 4. |
 | Reads look stale after a transaction | Hashio can serve state a few seconds behind. Wait and refresh. |
 | `forge script` runs out of gas in simulation | `yarn foundry:deploy` already passes `--gas-limit 14000000` on Hedera networks. If you run `forge script` yourself, add it: a two-contract script is simulated in one call. |
 
