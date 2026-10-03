@@ -14,6 +14,7 @@
 </p>
 
 <p align="center">
+  <a href="https://yield-links-hedera.vercel.app"><img alt="Live demo" src="https://img.shields.io/badge/live%20demo-yield--links--hedera.vercel.app-8259ef" /></a>
   <a href="LICENCE"><img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-8259ef" /></a>
   <a href="https://hashscan.io/testnet/contract/0x8221b51a0dAa92fF0B64f6106483A53fD5FA7aaE"><img alt="Live on Hedera testnet" src="https://img.shields.io/badge/Hedera-testnet%20live-34eeb6" /></a>
   <img alt="Node 20.18.3+" src="https://img.shields.io/badge/node-%E2%89%A520.18.3-2d84eb" />
@@ -24,6 +25,8 @@
 ```bash
 npm create scaffold-hbar@latest -- --template shane2512/YieldLinks
 ```
+
+**Try it live:** [yield-links-hedera.vercel.app](https://yield-links-hedera.vercel.app) (Hedera testnet). Open a claim link on your phone to see the no-wallet flow.
 
 A [scaffold-hbar](https://docs.hedera.com/solutions/tools/scaffold-hbar) template for one pattern: **park tokens somewhere productive, then release them to a person who has not onboarded yet.** The sender stakes SAUCE in SaucerSwap's Infinity Pool and gets a link. The recipient opens it, taps once, and Hedera creates their account and delivers the token. A relayer pays the network fee, which the sender prepaid with the link.
 
@@ -90,7 +93,7 @@ Every item in the Scaffold-HBAR Template Bounty eligibility gate, and where to c
 | `README.md` and `AGENTS.md` present | ✅ | This file and [`AGENTS.md`](AGENTS.md) |
 | Monorepo with separate packages for contracts and frontend | ✅ | [`packages/foundry`](packages/foundry) and [`packages/nextjs`](packages/nextjs), Yarn workspaces |
 | Install, lint and build pass from a fresh scaffold | ✅ | `yarn install`, `yarn next:lint`, `yarn foundry:lint`, `yarn next:build` (see [Testing](#testing)) |
-| App boots and core routes return OK | ✅ | `/` (send), `/claim` (claim), `/links` (your links), `/api/claim` (relayer) |
+| App boots and core routes return OK | ✅ | `/` (send), `/claim` (claim), `/links` (your links), `/api/claim` (relayer), all live at [yield-links-hedera.vercel.app](https://yield-links-hedera.vercel.app) |
 | At least one Hedera service in play | ✅ | Solidity on Hedera, HTS association, HIP-904 airdrop, account creation, mirror node (see [Hedera services used](#hedera-services-used)) |
 | Verifiable testnet transaction with a HashScan link | ✅ | [Proof it works](#proof-it-works): deploy, create, claim to a new account, cancel |
 | No committed secrets and no committed `.env` | ✅ | `.env*` is git-ignored; only `.env.example` files are committed |
