@@ -5,6 +5,7 @@ export const metadata = getMetadata({
   title: "Docs",
   description:
     "Build with the YieldLinks scaffold-hbar template: quickstart, contract reference, fees, architecture and Hedera notes.",
+  imageRelativePath: "/thumbnail-docs.jpg",
 });
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
