@@ -1,14 +1,71 @@
-# YieldLinks
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/logo-light-ink.svg" />
+    <img src="docs/images/logo-dark-ink.svg" alt="YieldLinks logo" width="96" height="96" />
+  </picture>
+</p>
 
-**Gift links that grow.** A [scaffold-hbar](https://docs.hedera.com/solutions/tools/scaffold-hbar) template for sending tokens to someone who has no wallet, no HBAR and no account yet, while the tokens earn yield until they are claimed.
+<h1 align="center">YieldLinks</h1>
 
-The sender stakes SAUCE in SaucerSwap's Infinity Pool and gets a link. The recipient opens it, taps once, and Hedera creates their account and delivers the token. A relayer pays the network fee, so the recipient needs nothing.
+<p align="center">
+  <strong>Gift links that grow.</strong><br />
+  Send tokens to anyone with a link. They earn yield in SaucerSwap until claimed.<br />
+  The recipient needs no wallet, no HBAR and no Hedera account.
+</p>
 
-Use it as the starting point for any app that has to **park tokens somewhere productive, then release them to a person who has not onboarded yet**: gifts, payroll to new hires, bounties, referral rewards, allowance for kids.
+<p align="center">
+  <a href="LICENCE"><img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-8259ef" /></a>
+  <a href="https://hashscan.io/testnet/contract/0x8221b51a0dAa92fF0B64f6106483A53fD5FA7aaE"><img alt="Live on Hedera testnet" src="https://img.shields.io/badge/Hedera-testnet%20live-34eeb6" /></a>
+  <img alt="Node 20.18.3+" src="https://img.shields.io/badge/node-%E2%89%A520.18.3-2d84eb" />
+  <img alt="Next.js and Foundry" src="https://img.shields.io/badge/stack-Next.js%20%2B%20Foundry-11151d" />
+  <img alt="Tests" src="https://img.shields.io/badge/tests-54%20forge%20%2B%2041%20vitest-11151d" />
+</p>
 
 ```bash
 npm create scaffold-hbar@latest -- --template shane2512/YieldLinks
 ```
+
+A [scaffold-hbar](https://docs.hedera.com/solutions/tools/scaffold-hbar) template for one pattern: **park tokens somewhere productive, then release them to a person who has not onboarded yet.** The sender stakes SAUCE in SaucerSwap's Infinity Pool and gets a link. The recipient opens it, taps once, and Hedera creates their account and delivers the token. A relayer pays the network fee, which the sender prepaid with the link.
+
+Fork it for gifts, payroll to new hires, bounties that refund themselves, referral rewards, or an allowance a child claims into a brand-new account.
+
+<p align="center">
+  <a href="https://youtu.be/NsjGGW38Ufs"><img src="docs/images/demo-thumbnail.png" alt="Watch the YieldLinks demo video on YouTube (3 minutes)" width="720" /></a><br />
+  <sub><a href="https://youtu.be/NsjGGW38Ufs">▶ Watch the 3-minute demo</a>: the problem, the scaffold, creating a link, and claiming with no wallet on Hedera testnet.</sub>
+</p>
+
+## Contents
+
+- [Demo video](https://youtu.be/NsjGGW38Ufs)
+- [The problem](#the-problem)
+- [What it looks like](#what-it-looks-like)
+- [User flow](#user-flow)
+- [Bounty checklist](#bounty-checklist)
+- [Ecosystem integration: SaucerSwap](#ecosystem-integration-saucerswap)
+- [Hedera services used](#hedera-services-used)
+- [Tech stack](#tech-stack)
+- [Proof it works](#proof-it-works)
+- [Quickstart](#quickstart-about-5-minutes)
+- [How it works](#how-it-works)
+- [Project layout](#project-layout)
+- [Configuration](#configuration)
+- [Deploy your own](#deploy-your-own) · [Extend it](#extend-it) · [Testing](#testing)
+- [Building with an AI agent](#building-with-an-ai-agent)
+- [Security](#security) · [Limitations](#limitations-and-honest-notes) · [Troubleshooting](#troubleshooting)
+
+## The problem
+
+Sending tokens to someone new on Hedera takes a dozen steps on their side: install a wallet, back up a key, buy HBAR on an exchange, withdraw it, associate the token, then send an address back. Until they finish, the tokens sit idle in the sender's wallet.
+
+YieldLinks removes every step on the recipient's side and puts the waiting time to work:
+
+| Without YieldLinks | With YieldLinks |
+| --- | --- |
+| Recipient needs a wallet before anything happens | Recipient opens a link in any browser |
+| Recipient needs HBAR for fees | A relayer pays, from a fee the sender prepaid |
+| Token must be associated first | HIP-904 airdrop creates and associates in one step |
+| Tokens earn nothing while you wait | Tokens are staked in SaucerSwap and grow until claimed |
+| Unclaimed tokens are stuck | Anyone can refund an expired link to the sender |
 
 ## What it looks like
 
@@ -17,6 +74,49 @@ npm create scaffold-hbar@latest -- --template shane2512/YieldLinks
 | ![Create a gift link](docs/images/home-desktop.jpg) | ![Claim a gift on a phone](docs/images/claim-mobile.jpg) |
 
 The recipient's page deliberately shows no wallet, faucet or network chrome: only the gift and the claim controls.
+
+## User flow
+
+![YieldLinks user flow: sender creates a link, Hedera stakes and later airdrops, recipient claims with no wallet](docs/images/userflow.png)
+
+## Bounty checklist
+
+Every item in the Scaffold-HBAR Template Bounty eligibility gate, and where to check it.
+
+| Gate requirement | Status | Evidence |
+| --- | --- | --- |
+| Scaffolds via `npm create scaffold-hbar@latest -- --template owner/repo` | ✅ | `npm create scaffold-hbar@latest -- --template shane2512/YieldLinks` |
+| `template.json` manifest present and valid | ✅ | [`template.json`](template.json): capabilities, defaults, Node requirement, post-install steps |
+| `README.md` and `AGENTS.md` present | ✅ | This file and [`AGENTS.md`](AGENTS.md) |
+| Monorepo with separate packages for contracts and frontend | ✅ | [`packages/foundry`](packages/foundry) and [`packages/nextjs`](packages/nextjs), Yarn workspaces |
+| Install, lint and build pass from a fresh scaffold | ✅ | `yarn install`, `yarn next:lint`, `yarn foundry:lint`, `yarn next:build` (see [Testing](#testing)) |
+| App boots and core routes return OK | ✅ | `/` (send), `/claim` (claim), `/links` (your links), `/api/claim` (relayer) |
+| At least one Hedera service in play | ✅ | Solidity on Hedera, HTS association, HIP-904 airdrop, account creation, mirror node (see [Hedera services used](#hedera-services-used)) |
+| Verifiable testnet transaction with a HashScan link | ✅ | [Proof it works](#proof-it-works): deploy, create, claim to a new account, cancel |
+| No committed secrets and no committed `.env` | ✅ | `.env*` is git-ignored; only `.env.example` files are committed |
+| MIT licence, original work | ✅ | [`LICENCE`](LICENCE) |
+| Harness spec and validators, if the harness was used | n/a | Hedera Harness was not used |
+
+## Ecosystem integration: SaucerSwap
+
+**SaucerSwap's Infinity Pool is load-bearing.** It is both where the escrowed tokens are held and the reason the gift grows. Remove it and the template has no yield and nowhere to keep the funds.
+
+- `createLink` stakes the sender's SAUCE into the Infinity Pool (`enter`, SAUCE to xSAUCE) through [`SauceStakingSource`](packages/foundry/contracts/sources/SauceStakingSource.sol).
+- A link's value is read live from the pool's xSAUCE exchange rate, so every open link earns without per-link bookkeeping.
+- `claim` and refunds unstake (`leave`) and pay out the grown amount.
+- The venue sits behind a three-function [`IYieldSource`](packages/foundry/contracts/interfaces/IYieldSource.sol) interface, so a developer can swap in another protocol without touching the escrow contract.
+
+What a developer gets that is hard to build alone: escrow against a key, yield while waiting, pooled share accounting with inflation-attack protection, and release to a signature, already wired to a live Hedera DEX.
+
+## Hedera services used
+
+| Service | Where | What it does here |
+| --- | --- | --- |
+| **Smart contracts (Solidity on Hedera EVM)** | [`YieldLinks.sol`](packages/foundry/contracts/YieldLinks.sol) | Escrow, pooled shares, EIP-712 claims and permissionless refunds, with no owner and no upgrade path |
+| **HTS token association** | [`HtsLib.sol`](packages/foundry/contracts/libraries/HtsLib.sol) | Contracts associate themselves with SAUCE and xSAUCE through the `0x167` precompile |
+| **HTS HIP-904 airdrop** | [`ControlledSource.sol`](packages/foundry/contracts/sources/ControlledSource.sol) | A payout to an address Hedera has never seen creates the account and associates the token in one transaction |
+| **Account creation (Hiero SDK)** | [`/api/create-account`](packages/nextjs/app/api/create-account/route.ts) | Creates a real ED25519 account for a wallet generated in the browser, so it imports into HashPack |
+| **Mirror node** | [`utils/relayer`](packages/nextjs/utils/relayer) | Authoritative nonces after failed transactions, and account lookups before creating a wallet |
 
 ## What it demonstrates
 
@@ -28,6 +128,10 @@ The recipient's page deliberately shows no wallet, faucet or network chrome: onl
 | **EIP-712 claims** | The link key signs a claim bound to the recipient, chain and contract, so a mempool watcher cannot redirect funds. |
 | **Pooled share accounting** | Yield accrues to every link without per-link bookkeeping; virtual shares stop the first-depositor inflation attack. |
 | **Gas-paying relayer** | A Next.js route submits claims, so claimants need no HBAR. It simulates first and can only call `claim`. |
+
+## Tech stack
+
+![YieldLinks tech stack grouped by purpose: network, yield, smart contracts, frontend, wallets, claims and relayer, testing, template](docs/images/techstack.png)
 
 ## Proof it works
 
@@ -197,6 +301,10 @@ Inherit `ControlledSource` to get the one-time controller binding and the HIP-90
 
 **Fork it into something else.** The pattern is "escrow against a key, earn while waiting, release to a signature". Payroll to new hires (claim = start date), referral rewards (yield pays for the campaign), bounties that auto-refund, or an allowance a child claims into a new account.
 
+## Building with an AI agent
+
+[`AGENTS.md`](AGENTS.md) is the briefing for Claude Code, Cursor and Codex (`CLAUDE.md` points to it). It covers the commands, the layout, the eight invariants an agent must not break, secret handling, the steps for adding a yield source, and the Hedera pitfalls that cost the most time. The repository also ships a Solidity security skill and a code-review agent under [`.agents/`](.agents).
+
 ## Security
 
 See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md). In short: a link is bearer value, so treat it like cash; claims are bound to a recipient so a watcher cannot redirect them; the relayer can only call `claim`; and nothing in the contracts needs a keeper or a schedule. **This has not been audited.**
@@ -236,6 +344,6 @@ yarn next:build
 yarn foundry:demo      # live testnet proof
 ```
 
-## License
+## Licence
 
-MIT. See [LICENCE](LICENCE).
+MIT. See [LICENCE](LICENCE). Built by [shane2512](https://github.com/shane2512) on [scaffold-hbar](https://docs.hedera.com/solutions/tools/scaffold-hbar).

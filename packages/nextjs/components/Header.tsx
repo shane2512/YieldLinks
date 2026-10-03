@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useRef } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bars3Icon, BugAntIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
@@ -97,10 +96,12 @@ export const Header = () => {
           passHref
           className={`${isClaimPage ? "flex" : "hidden lg:flex"} items-center gap-3 ml-4 mr-6 shrink-0`}
         >
-          <div className="flex relative w-9 h-9">
-            <Image alt="Hedera icon" className="cursor-pointer dark:hidden" fill src="/Hedera-Icon-Dark.svg" />
-            <Image alt="Hedera icon" className="cursor-pointer hidden dark:block" fill src="/Hedera-Icon-White.svg" />
-          </div>
+          {/* Sprout mark: stem and leaves form a Y; the violet leaf is the yield. Source: design/assets/logo/mark.svg */}
+          <svg aria-hidden="true" className="w-9 h-9 text-base-content" viewBox="0 0 64 64" fill="none">
+            <path d="M32 60V35" stroke="currentColor" strokeWidth="7" strokeLinecap="round" />
+            <path d="M32 36C17 36 7.5 26.5 7.5 11.5C22.5 11.5 32 21 32 36Z" fill="currentColor" />
+            <path d="M32 36C32 17.5 42.5 5.5 58.5 5C58.5 22 48.5 36 32 36Z" fill="#8259EF" />
+          </svg>
           <div className="flex flex-col">
             <span className="font-bold leading-tight text-base">YieldLinks</span>
             <span className="text-[10px] tracking-wider uppercase text-base-content/50 font-medium">
