@@ -25,6 +25,10 @@ export const menuLinks: HeaderMenuLink[] = [
     href: "/links",
   },
   {
+    label: "Docs",
+    href: "/docs",
+  },
+  {
     label: "Debug Contracts",
     href: "/debug",
     icon: <BugAntIcon className="h-4 w-4" />,
@@ -44,7 +48,7 @@ export const HeaderMenuLinks = ({ desktop = false }: { desktop?: boolean }) => {
   return (
     <>
       {menuLinks.map(({ label, href, icon, devTool }) => {
-        const isActive = pathname === href;
+        const isActive = href === "/" ? pathname === href : pathname.startsWith(href);
         return (
           <li key={href} className={desktop && devTool ? "hidden xl:block" : undefined}>
             <Link
