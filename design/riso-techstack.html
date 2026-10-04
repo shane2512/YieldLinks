@@ -1,0 +1,125 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=JetBrains+Mono:wght@500;700;800&display=block" rel="stylesheet" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { width: 1920px; height: 1080px; overflow: hidden; background: #0a0d14; font-family: Montserrat, sans-serif; color: #f3f4f8; }
+  .stage { position: relative; width: 100%; height: 100%; padding: 56px 120px;
+    background: radial-gradient(900px 600px at 50% 55%, rgba(130,89,239,0.14), transparent 70%),
+                radial-gradient(600px 500px at 0% 100%, rgba(45,132,235,0.10), transparent 70%), #0a0d14; }
+  .grid { position: absolute; inset: 0; opacity: 0.5; pointer-events: none;
+    background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 64px 64px; }
+  .title { position: relative; display: flex; align-items: center; gap: 18px; }
+  .title h1 { font-size: 46px; font-weight: 900; letter-spacing: -0.02em; }
+  .title h1 span { color: #a98bff; }
+  .title p { margin-left: auto; font-family: "JetBrains Mono", monospace; font-size: 18px; color: #9aa1b2; }
+
+  .cards { position: relative; margin-top: 44px; display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 400px; gap: 26px; }
+  .card { border-radius: 24px; padding: 28px 28px 24px; display: flex; flex-direction: column;
+    background: linear-gradient(180deg, #171c28, #121722); border: 1.5px solid #262d3b; box-shadow: 0 16px 40px rgba(0,0,0,0.35); }
+  .card.key { border-color: rgba(169,139,255,0.5); box-shadow: 0 0 0 6px rgba(130,89,239,0.08), 0 16px 40px rgba(0,0,0,0.35); }
+  .k { font-family: "JetBrains Mono", monospace; font-size: 17px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #a98bff; }
+  .why { margin-top: 10px; font-size: 19px; font-weight: 600; color: #9aa1b2; line-height: 1.4; min-height: 80px; }
+  .items { margin-top: auto; display: flex; flex-direction: column; gap: 12px; }
+  .it { display: flex; align-items: center; gap: 14px; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); }
+  .ic { flex: none; width: 44px; height: 44px; border-radius: 11px; background: #1f2534; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .ic img { width: 26px; height: 26px; object-fit: contain; }
+  .ic img.av { width: 44px; height: 44px; object-fit: cover; }
+  .ic.txt { font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 13px; color: #c4b2ff; }
+  .nm { font-size: 20px; font-weight: 800; }
+  .rl { font-size: 14px; font-weight: 600; color: #8b92a5; margin-top: 2px; }
+</style>
+<link rel="stylesheet" href="riso/riso.css" />
+</head>
+<body>
+<div class="stage">
+  <div class="grid"></div>
+  <div class="title">
+    <svg width="52" height="52" viewBox="0 0 64 64" fill="none"><path d="M32 60V35" stroke="#F3F4F8" stroke-width="7" stroke-linecap="round"/><path d="M32 36C17 36 7.5 26.5 7.5 11.5C22.5 11.5 32 21 32 36Z" fill="#F3F4F8"/><path d="M32 36C32 17.5 42.5 5.5 58.5 5C58.5 22 48.5 36 32 36Z" fill="#8259EF"/></svg>
+    <h1>The YieldLinks <span>stack</span></h1>
+    <p>what each piece does</p>
+  </div>
+
+  <div class="cards">
+    <div class="card key">
+      <div class="k">Network</div>
+      <div class="why">Accounts, tokens and the airdrop that creates a recipient's account on claim.</div>
+      <div class="items">
+        <div class="it"><div class="ic"><img src="assets/stack-logos/hedera.svg"></div><div><div class="nm">Hedera</div><div class="rl">Testnet, EVM + Hashio RPC</div></div></div>
+        <div class="it"><div class="ic txt">HTS</div><div><div class="nm">HIP-904 airdrops</div><div class="rl">Create + associate in one tx</div></div></div>
+      </div>
+    </div>
+
+    <div class="card key">
+      <div class="k">Yield</div>
+      <div class="why">Where escrowed SAUCE earns until someone claims it.</div>
+      <div class="items">
+        <div class="it"><div class="ic"><img class="av" src="assets/stack-logos/saucerswap.png"></div><div><div class="nm">SaucerSwap</div><div class="rl">Infinity Pool, SAUCE → xSAUCE</div></div></div>
+        <div class="it"><div class="ic txt">IYS</div><div><div class="nm">IYieldSource</div><div class="rl">Swappable yield adapter</div></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="k">Smart contracts</div>
+      <div class="why">Escrow, pooled shares, claims and permissionless refunds.</div>
+      <div class="items">
+        <div class="it"><div class="ic"><img src="assets/stack-logos/solidity.svg"></div><div><div class="nm">Solidity</div><div class="rl">YieldLinks + sources</div></div></div>
+        <div class="it"><div class="ic"><img class="av" src="assets/stack-logos/foundry.png"></div><div><div class="nm">Foundry</div><div class="rl">Build, deploy, scripts</div></div></div>
+        <div class="it"><div class="ic"><img src="assets/stack-logos/openzeppelin.svg"></div><div><div class="nm">OpenZeppelin</div><div class="rl">EIP-712, SafeERC20, guards</div></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="k">Frontend</div>
+      <div class="why">The send page and the wallet-free claim page.</div>
+      <div class="items">
+        <div class="it"><div class="ic"><img src="assets/stack-logos/nextdotjs.svg"></div><div><div class="nm">Next.js 15</div><div class="rl">App Router</div></div></div>
+        <div class="it"><div class="ic"><img src="assets/stack-logos/react.svg"></div><div><div class="nm">React 19 + TypeScript</div><div class="rl">UI and key helpers</div></div></div>
+        <div class="it"><div class="ic"><img src="assets/stack-logos/tailwindcss.svg"></div><div><div class="nm">Tailwind + DaisyUI</div><div class="rl">Styling and components</div></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="k">Wallets</div>
+      <div class="why">How the sender connects and signs createLink.</div>
+      <div class="items">
+        <div class="it"><div class="ic"><img class="av" src="assets/stack-logos/rainbowkit.png"></div><div><div class="nm">RainbowKit</div><div class="rl">Connect modal</div></div></div>
+        <div class="it"><div class="ic"><img src="assets/stack-logos/wagmi.svg"></div><div><div class="nm">Wagmi + Viem</div><div class="rl">Contract reads and writes</div></div></div>
+        <div class="it"><div class="ic"><img class="av" src="assets/stack-logos/hashpack.png"></div><div><div class="nm">HashPack</div><div class="rl">Hedera wallet, via WalletConnect</div></div></div>
+      </div>
+    </div>
+
+    <div class="card key">
+      <div class="k">Claims + relayer</div>
+      <div class="why">Lets a recipient with no HBAR claim safely.</div>
+      <div class="items">
+        <div class="it"><div class="ic"><img src="assets/stack-logos/ethereum.svg"></div><div><div class="nm">EIP-712 signatures</div><div class="rl">Claim bound to the recipient</div></div></div>
+        <div class="it"><div class="ic"><img src="assets/stack-logos/nextdotjs.svg"></div><div><div class="nm">Next.js API routes</div><div class="rl">Gas-paying relayer</div></div></div>
+        <div class="it"><div class="ic txt">ED</div><div><div class="nm">@noble/curves</div><div class="rl">In-browser ED25519 wallets</div></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="k">Testing</div>
+      <div class="why">54 contract tests plus frontend unit tests.</div>
+      <div class="items">
+        <div class="it"><div class="ic"><img class="av" src="assets/stack-logos/foundry.png"></div><div><div class="nm">Forge</div><div class="rl">Fuzz + stateful invariants</div></div></div>
+        <div class="it"><div class="ic"><img src="assets/stack-logos/vitest.svg"></div><div><div class="nm">Vitest</div><div class="rl">URLs, signing, wallets</div></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="k">Template</div>
+      <div class="why">One command scaffolds the whole project.</div>
+      <div class="items">
+        <div class="it"><div class="ic"><img src="assets/stack-logos/hedera.svg"></div><div><div class="nm">scaffold-hbar</div><div class="rl">npm create scaffold-hbar</div></div></div>
+        <div class="it"><div class="ic"><img src="assets/stack-logos/yarn.svg"></div><div><div class="nm">Yarn workspaces</div><div class="rl">foundry + nextjs packages</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

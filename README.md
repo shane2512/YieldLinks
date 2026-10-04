@@ -54,7 +54,7 @@ Fork it for gifts, payroll to new hires, bounties that refund themselves, referr
 - [Configuration](#configuration)
 - [Deploy your own](#deploy-your-own) · [Extend it](#extend-it) · [Testing](#testing)
 - [Building with an AI agent](#building-with-an-ai-agent)
-- [Security](#security) · [Limitations](#limitations-and-honest-notes) · [Troubleshooting](#troubleshooting)
+- [Security: claim URL and EIP-712 binding](#security) · [Limitations](#limitations-and-honest-notes) · [Troubleshooting](#troubleshooting)
 
 ## The problem
 
@@ -314,7 +314,55 @@ Inherit `ControlledSource` to get the one-time controller binding and the HIP-90
 
 ## Security
 
-See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md). In short: a link is bearer value, so treat it like cash; claims are bound to a recipient so a watcher cannot redirect them; the relayer can only call `claim`; and nothing in the contracts needs a keeper or a schedule. **This has not been audited.**
+**This has not been audited.** The full threat table is in [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) and on the [live docs](https://yield-links-hedera.vercel.app/docs/security). The part that matters most is how a claim link stays safe.
+
+### In one picture
+
+```
+ Sender's browser                Recipient's browser                  Chain
+ ----------------                -------------------                  -----
+ makes key pair                  opens  /claim#k=<key>
+ sends only linkKey  ──────────────────────────────────────────►  stores linkKey
+ shares URL (key in #)  ───►     key stays in the browser
+                                 picks recipient, signs
+                                 Claim(linkKey, recipient)
+                                 sends only the signature ──►  claim() recovers signer
+                                      (via the relayer)         signer == linkKey ?
+                                                                recipient == signed ? pay
+```
+
+The key never leaves the browser, and the signature only works for the recipient it was made for. Anyone who copies a URL can still claim it first (it is bearer value), but nobody can redirect a claim that is already in flight.
+
+### The claim URL
+
+```
+https://yield-links-hedera.vercel.app/claim#k=<link private key>&c=296
+```
+
+- The private key lives **after the `#`**. Browsers never send the fragment to a server, so it never reaches the app, the relayer or any log.
+- The key is made in the sender's browser, and only its **address** (`linkKey`) goes on chain. A link is bearer value: whoever holds the URL can claim it, so share it like cash and keep expiries short.
+- The key is single use, forever. Links are never deleted, only moved to `Claimed` or `Refunded`.
+
+### The EIP-712 binding
+
+The claim page does not send the key anywhere. It signs a typed message in the browser and sends only the signature:
+
+```
+Claim(address linkKey, address recipient)
+domain: { name: "YieldLinks", version: "1", chainId, verifyingContract }
+```
+
+`claim()` recomputes that digest on chain, recovers the signer, and requires it to equal `linkKey`. So:
+
+| Attack | Why it fails | Test |
+| --- | --- | --- |
+| Watch the mempool and swap in your own recipient | The recipient is inside the signed digest, so the recovered signer changes and the call reverts with `InvalidSignature` | `test_claim_frontRunnerCannotRedirectFunds` |
+| Reuse a signature on another chain or contract | `chainId` and `verifyingContract` are part of the domain | `_hashTypedDataV4` in `claim` |
+| Replay a spent claim | The link is `Claimed` and its shares are burned before any payout | `test_claim_cannotBeReplayed` |
+| Sign with some other key | The recovered signer must equal `linkKey` | `test_claim_revertsOnWrongSigner` |
+| Reuse a key for a new link | A used `linkKey` can never be created again (`LinkExists`) | `test_createLink_keyCanNeverBeReused` |
+
+The relayer sees the recipient and the signature, never the key. It can only submit `claim`, it simulates first, and it works only for links that prepaid the network fee, so it cannot move escrowed funds or change who is paid. Nothing in the contracts needs an owner, an upgrade path or a keeper.
 
 ## Limitations and honest notes
 
