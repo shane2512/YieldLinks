@@ -33,13 +33,13 @@ A [scaffold-hbar](https://docs.hedera.com/solutions/tools/scaffold-hbar) templat
 Fork it for gifts, payroll to new hires, bounties that refund themselves, referral rewards, or an allowance a child claims into a brand-new account.
 
 <p align="center">
-  <a href="https://youtu.be/NsjGGW38Ufs"><img src="docs/images/demo-thumbnail.png" alt="Watch the YieldLinks demo video on YouTube (3 minutes)" width="720" /></a><br />
-  <sub><a href="https://youtu.be/NsjGGW38Ufs">▶ Watch the 3-minute demo</a>: the problem, the scaffold, creating a link, and claiming with no wallet on Hedera testnet.</sub>
+  <a href="https://youtu.be/Qbu_F3LBD_Y"><img src="docs/images/demo-thumbnail.png" alt="Watch the YieldLinks demo video on YouTube (under 4 minutes)" width="720" /></a><br />
+  <sub><a href="https://youtu.be/Qbu_F3LBD_Y">▶ Watch the 4-minute demo</a>: the problem, the Scaffold-HBAR setup, creating a link, claiming with no wallet, the EIP-712 security model and testnet proofs.</sub>
 </p>
 
 ## Contents
 
-- [Demo video](https://youtu.be/NsjGGW38Ufs)
+- [Demo video](https://youtu.be/Qbu_F3LBD_Y)
 - [The problem](#the-problem)
 - [What it looks like](#what-it-looks-like)
 - [User flow](#user-flow)
